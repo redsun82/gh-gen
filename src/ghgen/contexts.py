@@ -204,7 +204,6 @@ class ContextBase(threading.local, RuleSet):
 
     @rule(matrix)
     def v(self, *, target: typing.Any = None, field: str | None = None):
-        print(target, field)
         return self.check(
             self.current_job
             and self.current_job.strategy is not None
@@ -247,7 +246,7 @@ class ContextBase(threading.local, RuleSet):
     @rule(Contexts.job.services._)
     def v(self, id, **kwargs):
         return self.check(
-            id in self.current_job.services,
+            id in (s.id for s in self.current_job.services),
             f"no `{id}` service defined in `job.services`",
         )
 

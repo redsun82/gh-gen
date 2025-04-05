@@ -282,16 +282,17 @@ def _get_job_or_workflow(path: str) -> Workflow | Job:
     return ret
 
 
-def _update_element(
-    value: typing.Any,
-    start: typing.Any,
-    *path: str | int,
+def _update_element[T, U](
+    start: typing.Callable[[str], typing.Any],
+    field: str | int,
+    ty: typing.Callable[[str, T], U],
+    value: T,
 ):
-    prefix, field = path[:-1], path[-1]
-    parent = _ensure_element(start, prefix)
+    parent = start(field)
+    value = ty(field, value)
     _ctx.validate(value, target=parent, field=field)
     old_value = getattr(parent, field)
-    new_value = _merge(".".join(map(str, path)), old_value, value)
+    new_value = _merge(field, old_value, value)
     if new_value is not None:
         setattr(parent, field, new_value)
 
@@ -329,7 +330,7 @@ class _NewUpdater[T]:
 
     def _update[U](
         self,
-        field: str | int,
+        field: str | int | _Appender,
         ty: typing.Callable[[str, U], typing.Any],
         value: U,
     ) -> typing.Self:
@@ -337,18 +338,40 @@ class _NewUpdater[T]:
         value = ty(field, value)
         el = ret._element
         _ctx.validate(value, target=el, field=field)
-        old_value = getattr(el, field)
+        match field:
+            case str():
+                old_value = getattr(el, field)
+            case (int() as i) | (_Appender(index=int() as i)):
+                old_value = el[i]
+            case _:
+                old_value = None
         new_value = _merge(field, old_value, value)
         if new_value is not None:
-            setattr(el, field, new_value)
+            match field:
+                case str():
+                    setattr(el, field, new_value)
+                case (int() as i) | (_Appender(index=int() as i)):
+                    el[i] = new_value
+                case _Appender():
+                    field.index = len(el)
+                    el.append(new_value)
         return ret
+
+    def _update_list[U](
+        self,
+        field: str | int,
+        ty: typing.Callable[[str, U], typing.Any],
+        value: U,
+    ) -> typing.Self:
+        self._sub_updater(_NewUpdater[list[U]], field)._update(_Appender(), ty, value)
+        return self
 
     def _ensure(self) -> typing.Self:
         start = self._start(self._log_path)
         _ensure_element(start, self._path)
         return self
 
-    def _sub_updater[U](self, ty: type[U], *fields: str) -> T:
+    def _sub_updater[U](self, ty: type[U], *fields: str) -> U:
         return ty(self._start, self._path + fields)
 
 
@@ -406,14 +429,14 @@ class _IdElementUpdater[T](_NewUpdater[T]):
 
 
 def _seq(
-    field: str, args: tuple[Value | typing.Iterable[str] | None, ...]
+    field: str, args: tuple[Value | dict | typing.Iterable[Value | dict] | None, ...]
 ) -> list[Value] | None:
-    if not args or (len(args) == 1 and args[0] is None):
+    if not args or (isinstance(args, tuple) and len(args) == 1 and args[0] is None):
         return None
     ret = []
     for arg in args:
         match arg:
-            case str() | bool() | int() | float() | Expr():
+            case str() | bool() | int() | float() | Expr() | dict():
                 ret.append(arg)
             case collections.abc.Iterable():
                 ret.extend(arg)
@@ -422,11 +445,12 @@ def _seq(
     return ret
 
 
+type ValueMapping = dict[str, Value] | typing.Iterable[tuple[str, Value]] | None
+
+
 def _map(
     field: str,
-    args: tuple[
-        dict[str, Value] | typing.Iterable[tuple[Value, Value]] | None, dict[str, Value]
-    ],
+    args: tuple[ValueMapping, dict[str, Value]],
 ) -> dict[str, Value] | None:
     arg, kwargs = args
     if arg is None and not kwargs:
@@ -442,9 +466,7 @@ def _map(
 
 def _field_map(
     field: str,
-    args: tuple[
-        dict[str, Value] | typing.Iterable[tuple[Value, Value]] | None, dict[str, Value]
-    ],
+    args: tuple[ValueMapping, dict[str, Value]],
 ) -> dict[str, Value] | None:
     args, kwargs = args
     kwargs = {Element._key(k): v for k, v in kwargs.items() if v is not None}
@@ -755,71 +777,211 @@ on = _OnUpdater(_get_workflow, ("on",))
 
 
 def name(name: str):
-    _update_element(name, _get_job_or_workflow("name"), "name")
+    _update_element(_get_job_or_workflow, "name", _value, name)
 
 
 def env(
-    mapping: dict[str, Value] | typing.Iterable[tuple[str, Value]] | None = None,
+    mapping: ValueMapping = None,
     /,
     **kwargs: Value,
 ):
     _update_element(
-        _map("env", (mapping, kwargs)),
-        _get_job_or_workflow("env"),
+        _get_job_or_workflow,
         "env",
+        _map,
+        (mapping, kwargs),
     )
 
 
-class _WorkflowOrJobUpdaters(_Updaters):
-    @classmethod
-    def instance(cls, reason: str):
-        if not _ctx.current_workflow:
-            _ctx.error(
-                f"`{reason}` can only be set in a workflow or a job. Did you forget a `@workflow` decoration?"
-            )
-            return None
-        return _ctx.current_job or _ctx.current_workflow
-
-    # name = _Updater(str)
-    # env = _Updater(dict)
+def runs_on(runner: Value):
+    if _ctx.current_job and _ctx.current_job.uses is not None:
+        _ctx.error(
+            f"job `{_ctx.current_job_id}` cannot set `runs-on` as it has already specified `uses` (with `call`)"
+        )
+    _update_element(_get_job, "runs_on", _value, runner)
 
 
-class _JobUpdaters(_Updaters):
-    @classmethod
-    def instance(cls, reason: str):
-        if not _ctx.current_workflow:
-            _ctx.error(
-                f"`{reason}` can only be set in a job or an implicit workflow job. Did you forget a `@workflow` decoration?"
-            )
-            return None
-        if not _ctx.current_job:
-            return _ctx.auto_job(reason)
-        return _ctx.current_job
+class _StrategyUpdater(ProxyExpr, _NewUpdater[Strategy]):
+    def __init__(self):
+        ProxyExpr.__init__(self)
+        _NewUpdater.__init__(self, _get_job, ("strategy",))
 
-    runs_on = _Updater(str)
+    def _get_expr(self) -> Expr:
+        return Contexts.strategy
 
-    class StrategyUpdater(_Updater):
-        matrix = _Updater(Matrix)
-        fail_fast = _Updater(lambda v=True: v)
-        max_parallel = _Updater(int)
+    @property
+    def _matrix(self) -> _NewUpdater[Matrix]:
+        return self._sub_updater(_NewUpdater, "matrix")
 
-    strategy = StrategyUpdater(Strategy)
-    steps = _Updater(list)
+    def matrix(
+        self,
+        value: Expr | None = None,
+        /,
+        include: typing.Iterable[dict[str, Value]] | None = None,
+        exclude: typing.Iterable[dict[str, Value]] | None = None,
+        **kwargs: list[Value],
+    ) -> typing.Self | None:
+        if value is not None:
+            if include or exclude or kwargs:
+                _ctx.error(
+                    "`matrix` cannot be used with both an expression value and `includes`, `excludes` or other keyword values"
+                )
+            return _StrategyUpdater()._update("matrix", _value, value)
+        self._matrix._update("include", _seq, (include,))
+        self._matrix._update("exclude", _seq, (exclude,))
+        self._matrix._update("values", _field_map, (None, kwargs))
+        return self
 
-    class ContainerUpdater[**P, F](_Updater[P, F]):
-        image = _Updater(str)
-        credentials = _Updater(Credentials)
-        env = _Updater(dict)
-        ports = _Updater(list)
-        volumes = _Updater(list)
-        options = _Updater(list)
+    def include(self, mapping: ValueMapping = None, /, **kwargs: Value) -> typing.Self:
+        self._matrix._update_list("include", _field_map, (mapping, kwargs))
+        return self
 
-    container = ContainerUpdater(Container)
+    def exclude(self, mapping: ValueMapping = None, /, **kwargs: Value) -> typing.Self:
+        self._matrix._update_list("exclude", _field_map, (mapping, kwargs))
+        return self
 
-    service = _MapUpdater(Container)
-    uses = _Updater(str)
-    with_ = _Updater(dict)
-    outputs = _Updater(dict)
+    class FailFast(ProxyExpr):
+        def _get_expr(self) -> Expr:
+            return Contexts.strategy.fail_fast
+
+        def __call__(self, value: Value | None = True) -> "_StrategyUpdater":
+            return _StrategyUpdater()._update("fail_fast", _value, value)
+
+    @property
+    def fail_fast(self) -> FailFast:
+        return self.FailFast(self._ensure())
+
+    class MaxParallel(ProxyExpr):
+        def _get_expr(self) -> Expr:
+            return Contexts.strategy.max_parallel
+
+        def __call__(self, value: Value | None) -> "_StrategyUpdater":
+            return _StrategyUpdater()._update("max_parallel", _value, value)
+
+    @property
+    def max_parallel(self) -> MaxParallel:
+        return self.MaxParallel(self._ensure())
+
+
+strategy = _StrategyUpdater()
+
+
+class _ContainerUpdater(_NewUpdater[Container]):
+    def image(self, image: Value | None) -> typing.Self:
+        return self._update("image", _value, image)
+
+    def credentials(
+        self, *, username: Value | None = None, password: Value | None = None
+    ) -> typing.Self:
+        return self._update(
+            "credentials", _value, Credentials(username=username, password=password)
+        )
+
+    def env(self, mapping: ValueMapping = None, /, **kwargs: Value) -> typing.Self:
+        return self._update("env", _map, (mapping, kwargs))
+
+    def ports(self, *ports: Value | typing.Iterable[Value]) -> typing.Self:
+        return self._update("ports", _seq, ports)
+
+    def volumes(self, *volumes: Value | typing.Iterable[Value]) -> typing.Self:
+        return self._update("volumes", _seq, volumes)
+
+    def options(self, *options: Value | typing.Iterable[Value]) -> typing.Self:
+        return self._update("options", _seq, options)
+
+    def __call__(
+        self,
+        image: Value | None = None,
+        *,
+        username: Value | None = None,
+        password: Value | None = None,
+        env: ValueMapping | None = None,
+        ports: typing.Iterable[Value] | None = None,
+        volumes: typing.Iterable[Value] | None = None,
+        options: typing.Iterable[Value] | None = None,
+    ) -> typing.Self:
+        return (
+            self.image(image)
+            .credentials(username=username, password=password)
+            .env(env)
+            .ports(ports)
+            .volumes(volumes)
+            .options(options)
+        )
+
+
+container = _ContainerUpdater(_get_job, ("container",))
+
+
+class _ServiceUpdater(_IdElementUpdater[Service], _ContainerUpdater):
+    def __call__(
+        self,
+        id: str,
+        image: Value | None = None,
+        *,
+        username: Value | None = None,
+        password: Value | None = None,
+        env: ValueMapping | None = None,
+        ports: typing.Iterable[Value] | None = None,
+        volumes: typing.Iterable[Value] | None = None,
+        options: typing.Iterable[Value] | None = None,
+    ) -> typing.Self:
+        if image is None:
+            image = id
+        return (
+            self.id(id)
+            .image(image)
+            .credentials(username=username, password=password)
+            .env(env)
+            .ports(ports)
+            .volumes(volumes)
+            .options(options)
+        )
+
+
+service = _ServiceUpdater(_get_job, ("services", "*"))
+
+
+def call(target: str, **kwargs: Value):
+    j = _ctx.current_job
+    j_id = _ctx.current_job_id
+    if j and j.uses:
+        _ctx.error(f"job `{j_id}` has already specified `uses` (with `call`)")
+    elif j and j.steps:
+        _ctx.error(f"job `{j_id}` specifies both `uses` (with `call`) and steps")
+    elif j and j.runs_on:
+        _ctx.error(f"job `{j_id}` specifies both `uses` (with `call`) and `runs-on`")
+    else:
+        _update_element(_get_job, "uses", _value, target)
+        if kwargs:
+            with_(**kwargs)
+
+
+def with_(mapping: ValueMapping = None, /, **kwargs: Value):
+    j = _ctx.current_job
+    j_id = _ctx.current_job_id
+    if j and not j.uses:
+        # TODO enforce `call(bla).with_(...)` rather than this
+        _ctx.error(
+            f"job `{j_id}` must specify `uses` (via `call`) in order to specify `with`"
+        )
+    else:
+        _update_element(_get_job, "with_", _field_map, (mapping, kwargs))
+
+
+def outputs(*args: typing.Union[RefExpr, "_StepUpdater"], **kwargs: typing.Any):
+    for arg in args:
+        match arg:
+            case RefExpr(_segments=(*_, id)):
+                _update_element(_get_job, "outputs", _map, (((id, arg),), {}))
+            case _StepUpdater():
+                _dump_step_outputs(arg._element)
+            case _:
+                _ctx.error(
+                    f"unsupported unnamed output `{instantiate(arg)}`, must be a context field or a step"
+                )
+    if kwargs:
+        _update_element(_get_job, "outputs", _field_map, (None, kwargs))
 
 
 _ctx = _Context()
@@ -869,7 +1031,8 @@ def _merge[T](field: str, lhs: T | None, rhs: T | None, recursed=False) -> T | N
                 assert type(lhs) is type(rhs)
                 return rhs
     except AssertionError as e:
-        _ctx.error(f"cannot assign `{rhs!r}` to `{field}`")
+        print("PROUT", rhs, type(rhs), lhs, type(lhs))
+        _ctx.error(f"cannot assign `{rhs!r}` (of type {type(rhs)}) to `{field}`")
 
 
 class GenerationError(Exception):
@@ -931,17 +1094,6 @@ class _Job(ProxyExpr):
 job = _Job()
 
 
-def runs_on(runner: Value):
-    j = _ctx.current_job
-    j_id = _ctx.current_job_id
-    if j and j.uses:
-        _ctx.error(
-            f"job `{j_id}` cannot set `runs-on` as it has already specified `uses` (with `call`)"
-        )
-    else:
-        _JobUpdaters.runs_on(runner)
-
-
 def needs(*args: RefExpr) -> list[str]:
     prereqs = []
     unsupported = []
@@ -959,71 +1111,6 @@ def needs(*args: RefExpr) -> list[str]:
         # this checks and autofills needs
         _ctx.validate([*args])
     return prereqs
-
-
-# use `call` instead of `uses`, to avoid confusion with `use`
-def call(target: str, **kwargs):
-    j = _ctx.current_job
-    j_id = _ctx.current_job_id
-    if j and j.uses:
-        _ctx.error(f"job `{j_id}` has already specified `uses` (with `call`)")
-    elif j and j.steps:
-        _ctx.error(f"job `{j_id}` specifies both `uses` (with `call`) and steps")
-    elif j and j.runs_on:
-        _ctx.error(f"job `{j_id}` specifies both `uses` (with `call`) and `runs-on`")
-    else:
-        _JobUpdaters.uses(target)
-        if kwargs:
-            with_(**kwargs)
-
-
-def with_(*args, **kwargs):
-    j = _ctx.current_job
-    j_id = _ctx.current_job_id
-    if j and not j.uses:
-        _ctx.error(
-            f"job `{j_id}` must specify `uses` (via `call`) in order to specify `with`"
-        )
-    else:
-        kwargs = {Element._key(k): a for k, a in kwargs.items()}
-        _JobUpdaters.with_(*args, **kwargs)
-
-
-class _StrategyUpdater(ProxyExpr):
-    def __call__(self, *args, **kwargs):
-        return _JobUpdaters.strategy(*args, **kwargs)
-
-    def _get_expr(self) -> Expr:
-        return Contexts.strategy
-
-    class FailFastUpdater(ProxyExpr):
-        def __call__(self, value: Value = True):
-            return _JobUpdaters.strategy.fail_fast(value)
-
-        def _get_expr(self) -> Expr:
-            return Contexts.strategy.fail_fast
-
-    fail_fast = FailFastUpdater()
-
-    class MaxParallelUpdater(ProxyExpr):
-        def __call__(self, value: Value = True):
-            return _JobUpdaters.strategy.max_parallel(value)
-
-        def _get_expr(self) -> Expr:
-            return Contexts.strategy.max_parallel
-
-    max_parallel = MaxParallelUpdater()
-
-    def matrix(self, *args, **kwargs):
-        return _JobUpdaters.strategy.matrix(*args, **kwargs)
-
-    job_index: RefExpr
-    job_total: RefExpr
-
-
-strategy = _StrategyUpdater()
-container = _JobUpdaters.container
-service = _JobUpdaters.service
 
 
 def _allocate_id(
@@ -1129,7 +1216,7 @@ class _StepUpdater(ProxyExpr, _IdElementUpdater[Step]):
 
     def env(
         self,
-        mapping: dict[str, Value] | typing.Iterable[tuple[str, Value]] | None = None,
+        mapping: ValueMapping = None,
         /,
         **kwargs: Value,
     ) -> typing.Self:
@@ -1157,7 +1244,7 @@ class _StepUpdater(ProxyExpr, _IdElementUpdater[Step]):
 
     def with_(
         self,
-        mapping: dict[str, Value] | typing.Iterable[tuple[str, Value]] | None = None,
+        mapping: ValueMapping = None,
         /,
         **kwargs: Value,
     ) -> typing.Self:
@@ -1211,8 +1298,10 @@ use = step.uses
 def _dump_step_outputs(s: Step):
     id = _ensure_id(s)
     if s.outputs:
-        outputs = getattr(steps, id).outputs
-        _JobUpdaters.outputs((o, getattr(outputs, o)) for o in s.outputs)
+        outs = getattr(steps, id).outputs
+        _update_element(
+            _get_job, "outputs", _map, (((o, getattr(outs, o)) for o in s.outputs), {})
+        )
     else:
         _ctx.error(
             f"step `{id}` passed to `outputs`, but no outputs were declared on it. Use `returns()` to do so",
@@ -1229,21 +1318,6 @@ def _dump_job_outputs(id: str, j: Job):
         _ctx.error(
             f"job `{id}` passed to `outputs`, but no outputs were declared on it. Use `outputs()` to do so",
         )
-
-
-def outputs(*args: RefExpr | _StepUpdater, **kwargs: typing.Any):
-    for arg in args:
-        match arg:
-            case RefExpr(_segments=(*_, id)):
-                _JobUpdaters.outputs(((id, arg),))
-            case _StepUpdater():
-                _dump_step_outputs(arg._element)
-            case _:
-                _ctx.error(
-                    f"unsupported unnamed output `{instantiate(arg)}`, must be a context field or a step"
-                )
-    if kwargs:
-        _JobUpdaters.outputs(**{Element._key(k): a for k, a in kwargs.items()})
 
 
 always = function("always", 0)

@@ -3,7 +3,7 @@ import typing
 
 from ruamel.yaml import CommentedSeq
 
-from .element import Element
+from .element import Element, asobj
 from typing import Any, cast
 from .expr import Value, Expr, ProxyExpr, RefExpr, instantiate, ErrorExpr
 from dataclasses import field
@@ -15,15 +15,20 @@ def _set_flow_style(d: dict, *fields) -> dict:
     for f in fields:
         if f not in d:
             continue
-        match d[f]:
-            case list():
-                d[f] = CommentedSeq(d[f])
-            case dict():
-                d[f] = CommentedMap(d[f])
-            case _:
-                continue
-        d[f].fa.set_flow_style()
+        d[f] = _with_flow_style(d[f])
     return d
+
+
+def _with_flow_style(v: dict | list) -> CommentedSeq | CommentedMap:
+    match v:
+        case list():
+            ret = CommentedSeq(v)
+        case dict():
+            ret = CommentedMap(v)
+        case _:
+            assert False
+    ret.fa.set_flow_style()
+    return ret
 
 
 class Input[T](Element):
@@ -400,10 +405,11 @@ class Matrix(Element):
         self.values = values
 
     def asdict(self) -> dict[str, Any]:
-        ret = Element.asdict(cast(Element, self))
+        ret = super().asdict()
         values = ret.pop("values", {})
-        ret |= values
-        return _set_flow_style(ret, *values)
+        values = _set_flow_style(values, *values)
+        ret = {k: [_with_flow_style(x) for x in v] for k, v in ret.items()}
+        return values | ret
 
 
 class Strategy(Element):
@@ -427,6 +433,10 @@ class Container(Element):
     options: list[Value]
 
 
+class Service(Container):
+    id: str
+
+
 default_runner = "ubuntu-latest"
 
 
@@ -435,7 +445,7 @@ class Job(Element):
     needs: list[str]
     runs_on: str
     container: Container
-    services: dict[str, Container]
+    services: list[Service]
     outputs: dict[str, Value]
     strategy: Strategy
     env: dict[str, Value]
@@ -444,7 +454,7 @@ class Job(Element):
     with_: dict[str, Value]
 
     def asdict(self) -> typing.Any:
-        return _set_flow_style(super().asdict(), "needs")
+        return _dictionarize(_set_flow_style(super().asdict(), "needs"), "services")
 
 
 class Workflow(Element):

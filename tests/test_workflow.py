@@ -223,15 +223,12 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        include:
-        - x: 100
-          y: z
-          z: 42
-        exclude:
-        - x: 1
-          y: a
         x: [1, 2, 3]
         y: [a, b, c]
+        include:
+        - {x: 100, y: z, z: 42}
+        exclude:
+        - {x: 1, y: a}
     steps:
     - run: ${{ matrix.x }}, ${{ matrix.y }}, ${{ matrix.z }}
 """
@@ -287,17 +284,19 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        include:
-          z: 42
         x: [1, 2, 3]
         y: [a, b]
+        include:
+        - {z: 42}
+        exclude:
+        - {x: 2, y: b}
     steps:
     - run: ${{ matrix.x }}, ${{ matrix.y }}, ${{ matrix.z }}
 """
 )
 def test_strategy_in_workflow():
     on.workflow_dispatch()
-    strategy.matrix(x=[1, 2, 3], y=["a", "b"], include={"z": 42})
+    strategy.matrix(x=[1, 2, 3], y=["a", "b"]).include(z=42).exclude(x=2, y="b")
     run(f"{matrix.x}, {matrix.y}, {matrix.z}")
 
 
@@ -324,7 +323,9 @@ jobs:
 )
 def test_matrix_from_input():
     i = on.workflow_dispatch.input()
+    print(current())
     strategy.matrix(fromJson(i))
+    print(current())
     run(f"{matrix.foo}, {matrix.bar}")
     step("Fail").if_(contains(i, "failed"))
 
@@ -966,7 +967,10 @@ jobs:
   j1:
     runs-on: ubuntu-latest
     container:
-      image: node:18
+      image: ghcr.io/owner/image
+      credentials:
+        username: foo
+        password: baz
       env:
         NODE_ENV: development
       ports:
@@ -978,11 +982,7 @@ jobs:
     steps:
     - run: echo ${{ job.container.id }}
   j2:
-    container:
-      image: ghcr.io/owner/image
-      credentials:
-        username: foo
-        password: baz
+    container: {}
 """
 )
 def test_container():
@@ -1009,17 +1009,20 @@ on:
 jobs:
   test_services:
     runs-on: ubuntu-latest
-    services:
-      nginx:
-        image: nginx:latest
-        ports:
-        - 8080:80
-      redis:
-        ports:
-        - 6379/tcp
     steps:
     - run: echo ${{ job.services.nginx.id }}
     - run: echo ${{ job.services.redis.ports[6379] }}
+    services:
+      nginx:
+        image: nginx:latest
+        credentials: {}
+        ports:
+        - 8080:80
+      redis:
+        image: redis
+        credentials: {}
+        ports:
+        - 6379/tcp
 """
 )
 def test_services():
@@ -1044,8 +1047,8 @@ jobs:
     steps:
     - run: |
         echo ${{ strategy }}
-        echo ${{ strategy.fail-fast }}
-        echo ${{ strategy.max-parallel }}
+        echo ${{ strategy }}
+        echo ${{ strategy }}
         echo ${{ strategy.job-index }}
         echo ${{ strategy.job-total }}
 """

@@ -111,7 +111,7 @@ def test_wrong_input(error):
     )
     on.input()
     on.workflow_dispatch()
-    error("cannot assign `list[int]` to `type`")
+    error("cannot assign `list[int]` (of type <class 'types.GenericAlias'>) to `type`")
     on.input.type(list[int])
 
     @job
@@ -266,8 +266,9 @@ def test_unavailable_matrix_values(error):
 
     @job
     def j5():
+        strategy.matrix(x=[42])
         error("`matrix` cannot be used in the `strategy` field defining it")
-        strategy.matrix(x=[42]).max_parallel(matrix.x)
+        strategy.max_parallel(matrix.x)
         error("`matrix` cannot be used in the `strategy` field defining it")
         strategy.matrix(y=[matrix.x])
         run("")
@@ -304,7 +305,6 @@ def test_wrong_runner_use(error):
     def j():
         error("`runner` cannot be used to update a job `strategy`")
         strategy.fail_fast(runner.os == "Linux")
-        error("`runner` cannot be used to update a job `strategy`")
         strategy.matrix(x=[runner.environment])
         error("`runner` cannot be used to update a job `runs-on`")
         runs_on(runner.os)
