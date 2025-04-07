@@ -437,11 +437,32 @@ class Service(Container):
     id: str
 
 
+Permission = typing.Literal["read", "write", "none"]
+
+
+class Permissions(Element):
+    actions: Permission
+    attestations: Permission
+    checks: Permission
+    contents: Permission
+    deployments: Permission
+    id_token: typing.Literal["write", "none"]
+    issues: Permission
+    discussions: Permission
+    packages: Permission
+    pages: Permission
+    pull_requests: Permission
+    repository_projects: Permission
+    security_events: Permission
+    statuses: Permission
+
+
 default_runner = "ubuntu-latest"
 
 
 class Job(Element):
     name: str
+    permissions: Permissions | typing.Literal["read-all", "write-all"]
     needs: list[str]
     runs_on: str
     container: Container
@@ -460,5 +481,6 @@ class Job(Element):
 class Workflow(Element):
     name: str
     on: On = field(default_factory=On)
+    permissions: Permissions | typing.Literal["read-all", "write-all"]
     env: dict[str, Value]
     jobs: dict[str, Job] = field(default_factory=dict)

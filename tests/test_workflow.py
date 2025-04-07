@@ -1123,3 +1123,52 @@ def test_github_context():
         echo {github.event.sender}
     """
     )
+
+
+@expect(
+    """
+# generated from test_workflow.py::test_permissions
+on:
+  workflow_dispatch: {}
+permissions:
+  actions: read
+  deployments: write
+  statuses: none
+jobs:
+  j1:
+    permissions: read-all
+    runs-on: ubuntu-latest
+    steps:
+    - run: ''
+  j2:
+    permissions: write-all
+    runs-on: ubuntu-latest
+    steps:
+    - run: ''
+  j3:
+    permissions:
+      discussions: write
+      packages: read
+    runs-on: ubuntu-latest
+    steps:
+    - run: ''
+"""
+)
+def test_permissions():
+    on.workflow_dispatch()
+    permissions(actions="read", deployments="write", statuses="none")
+
+    @job
+    def j1():
+        permissions("read-all")
+        run("")
+
+    @job
+    def j2():
+        permissions("write-all")
+        run("")
+
+    @job
+    def j3():
+        permissions(packages="read", discussions="write")
+        run("")

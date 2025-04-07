@@ -224,7 +224,7 @@ def _ensure_element_with_type(
                 f = next((f for f in fields(t) if f.name == p), None)
                 assert f is not None, f"no `{p}` field in `{t.__name__}`"
                 t = f.type
-                if typing.get_origin(t) is types.UnionType:
+                if typing.get_origin(t) in (types.UnionType, typing.Union):
                     t = typing.get_args(t)[0]
                 next_e = getattr(e, p)
                 if next_e is None:
@@ -284,7 +284,7 @@ def _get_job_or_workflow(path: str) -> Workflow | Job:
 
 def _update_element[T, U](
     start: typing.Callable[[str], typing.Any],
-    field: str | int,
+    field: str,
     ty: typing.Callable[[str, T], U],
     value: T,
 ):
@@ -298,7 +298,7 @@ def _update_element[T, U](
 
 
 @dataclasses.dataclass
-class _NewUpdater[T]:
+class _Updater[T]:
     _start: typing.Callable[[str], typing.Any]
     _path: tuple[str | int, ...]
     _cached_element: T | None = None
@@ -363,7 +363,7 @@ class _NewUpdater[T]:
         ty: typing.Callable[[str, U], typing.Any],
         value: U,
     ) -> typing.Self:
-        self._sub_updater(_NewUpdater[list[U]], field)._update(_Appender(), ty, value)
+        self._sub_updater(_Updater[list[U]], field)._update(_Appender(), ty, value)
         return self
 
     def _ensure(self) -> typing.Self:
@@ -376,7 +376,7 @@ class _NewUpdater[T]:
 
 
 @dataclasses.dataclass
-class _IdElementUpdater[T](_NewUpdater[T]):
+class _IdElementUpdater[T](_Updater[T]):
     @property
     def _log_path(self) -> str:
         return ".".join(map(str, self._path[:-1]))[:-1]
@@ -484,8 +484,8 @@ def _text[T](field: str, value: T) -> T:
     return value
 
 
-class _OnUpdater(_NewUpdater):
-    class _PullRequestOrPush(_NewUpdater):
+class _OnUpdater(_Updater):
+    class _PullRequestOrPush(_Updater):
         def branches(self, *branches: str | typing.Iterable[str]) -> typing.Self:
             return self._update("branches", _seq, branches)
 
@@ -607,7 +607,7 @@ class _OnUpdater(_NewUpdater):
             id = self.ensure_id()
             return getattr(Contexts.inputs, id)
 
-    class _WorkflowDispatch(_NewUpdater):
+    class _WorkflowDispatch(_Updater):
         @property
         def input(self) -> "_OnUpdater._Input":
             return self._sub_updater(_OnUpdater._Input, "inputs", "*")
@@ -724,17 +724,17 @@ def runs_on(runner: Value):
     _update_element(_get_job, "runs_on", _value, runner)
 
 
-class _StrategyUpdater(ProxyExpr, _NewUpdater[Strategy]):
+class _StrategyUpdater(ProxyExpr, _Updater[Strategy]):
     def __init__(self):
         ProxyExpr.__init__(self)
-        _NewUpdater.__init__(self, _get_job, ("strategy",))
+        _Updater.__init__(self, _get_job, ("strategy",))
 
     def _get_expr(self) -> Expr:
         return Contexts.strategy
 
     @property
-    def _matrix(self) -> _NewUpdater[Matrix]:
-        return self._sub_updater(_NewUpdater, "matrix")
+    def _matrix(self) -> _Updater[Matrix]:
+        return self._sub_updater(_Updater, "matrix")
 
     def matrix(
         self,
@@ -789,7 +789,7 @@ class _StrategyUpdater(ProxyExpr, _NewUpdater[Strategy]):
 strategy = _StrategyUpdater()
 
 
-class _ContainerUpdater(_NewUpdater[Container]):
+class _ContainerUpdater(_Updater[Container]):
     def image(self, image: Value | None) -> typing.Self:
         return self._update("image", _value, image)
 
@@ -954,7 +954,6 @@ def _merge[T](field: str, lhs: T | None, rhs: T | None, recursed=False) -> T | N
                 assert type(lhs) is type(rhs)
                 return rhs
     except AssertionError as e:
-        print("PROUT", rhs, type(rhs), lhs, type(lhs))
         _ctx.error(f"cannot assign `{rhs!r}` (of type {type(rhs)}) to `{field}`")
 
 
@@ -1244,6 +1243,57 @@ def _dump_job_outputs(id: str, j: Job):
 
 
 always = function("always", 0)
+
+
+def permissions(
+    value: typing.Literal["read-all", "write-all"] | None = None,
+    /,
+    *,
+    actions: Permission | None = None,
+    attestations: Permission | None = None,
+    checks: Permission | None = None,
+    contents: Permission | None = None,
+    deployments: Permission | None = None,
+    id_token: typing.Literal["write", "none"] | None = None,
+    issues: Permission | None = None,
+    discussions: Permission | None = None,
+    packages: Permission | None = None,
+    pages: Permission | None = None,
+    pull_requests: Permission | None = None,
+    repository_projects: Permission | None = None,
+    security_events: Permission | None = None,
+    statuses: Permission | None = None,
+):
+    # TODO bake type checking in `_ctx.validate`, which would check permissions are set correctly
+    perms = locals()
+    perms.pop("value")
+    if value is not None and any(p is not None for p in perms.values()):
+        _ctx.error(
+            "`permissions` cannot be set to `read-all` or `write-all` with any other more specific permission field"
+        )
+    elif value is not None:
+        _update_element(_get_job_or_workflow, "permissions", _value, value)
+    else:
+        updater = _Updater(_get_job_or_workflow, ("permissions",))
+        for field in (
+            "actions",
+            "attestations",
+            "checks",
+            "contents",
+            "deployments",
+            "id_token",
+            "issues",
+            "discussions",
+            "packages",
+            "pages",
+            "pull_requests",
+            "repository_projects",
+            "security_events",
+            "statuses",
+        ):
+            updater._update(field, _value, locals()[field])
+
+
 cancelled = function("cancelled", 0)
 fromJson = function("fromJson")
 contains = function("contains", 2)

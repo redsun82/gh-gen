@@ -402,3 +402,13 @@ def test_any_context_in_wrong_place(error):
     on.push(paths=[f"./{vars.PATH}"])
 
     run("")
+
+
+@expect_errors
+def test_wrong_permissions(error):
+    on.workflow_dispatch()
+    error(
+        "`permissions` cannot be set to `read-all` or `write-all` with any other more specific permission field"
+    )
+    permissions("read-all", attestations="write")
+    run("")
