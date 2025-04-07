@@ -127,7 +127,7 @@ class Expr(abc.ABC):
         return True
 
 
-type Value = str | bool | int | float | Expr
+Value = str | bool | int | float | Expr
 
 
 instantiate = Expr._instantiate

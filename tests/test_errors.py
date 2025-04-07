@@ -111,7 +111,9 @@ def test_wrong_input(error):
     )
     on.input()
     on.workflow_dispatch()
-    error("cannot assign `list[int]` (of type <class 'types.GenericAlias'>) to `type`")
+    error(
+        "expected `type` to be of type `Literal['boolean', 'choice', 'number', 'environment', 'string']`, got `list[int]` of type `GenericAlias`"
+    )
     on.input.type(list[int])
 
     @job
@@ -411,4 +413,19 @@ def test_wrong_permissions(error):
         "`permissions` cannot be set to `read-all` or `write-all` with any other more specific permission field"
     )
     permissions("read-all", attestations="write")
-    run("")
+    error(
+        "expected `permissions` to be of type `Union[src.ghgen.workflow.Permissions, Literal['read-all', 'write-all'], NoneType]`, got `'foo'` of type `str`"
+    )
+    permissions("foo")
+
+    @job
+    def j():
+        error(
+            "expected `contents` to be of type `Optional[Literal['read', 'write', 'none']]`, got `'bar'` of type `str`"
+        )
+        permissions(contents="bar")
+        error(
+            "expected `id_token` to be of type `Optional[Literal['write', 'none']]`, got `'read'` of type `str`"
+        )
+        permissions(id_token="read")
+        run("")

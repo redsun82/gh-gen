@@ -7,6 +7,7 @@ import itertools
 import textwrap
 import types
 import typing
+from copyreg import add_extension
 from dataclasses import dataclass, fields, asdict
 import pathlib
 
@@ -57,6 +58,21 @@ def _get_user_frame() -> typing.Any:
 
 def _get_user_frame_info() -> inspect.Traceback:
     return inspect.getframeinfo(_get_user_frame())
+
+
+def _typecheck(val: typing.Any, ty: typing.Type) -> bool:
+    origin = typing.get_origin(ty)
+    match origin:
+        case None:
+            return isinstance(val, ty)
+        case typing.Union | types.UnionType:
+            return any(_typecheck(val, x) for x in typing.get_args(ty))
+        case typing.Literal:
+            options = typing.get_args(ty)
+            assert all(isinstance(o, str) for o in options)
+            return val in options
+        case _:
+            return isinstance(val, origin)
 
 
 @dataclass
@@ -181,6 +197,17 @@ class _Context(ContextBase):
             )
         return job
 
+    def validate(self, value: typing.Any, *, target: typing.Any, field: str) -> bool:
+        if value is not None and isinstance(target, Element):
+            field_info = next(f for f in fields(target) if f.name == field)
+            assert field_info
+            if not _typecheck(value, field_info.type):
+                log_type = str(field_info.type).replace("typing.", "")
+                self.error(
+                    f"expected `{field}` to be of type `{log_type}`, got `{value!r}` of type `{type(value).__name__}`"
+                )
+        return super().validate(value, target=target, field=field)
+
 
 type _Path = tuple[str | int, ...]
 
@@ -283,7 +310,7 @@ def _get_job_or_workflow(path: str) -> Workflow | Job:
 
 
 def _update_element[T, U](
-    start: typing.Callable[[str], typing.Any],
+    start: typing.Callable[[str], Element],
     field: str,
     ty: typing.Callable[[str, T], U],
     value: T,
@@ -583,7 +610,6 @@ class _OnUpdater(_Updater):
             return self._update("description", _text, value)
 
         def type(self, value: str | None) -> typing.Self:
-            # TODO check type
             return self._update("type", _value, value)._post_process()
 
         def options(self, *options: str | typing.Iterable[str]) -> typing.Self:
@@ -919,42 +945,36 @@ def current_workflow_id() -> str | None:
 
 
 def _merge[T](field: str, lhs: T | None, rhs: T | None, recursed=False) -> T | None:
-    try:
-        match (lhs, rhs):
-            case None, _:
-                return rhs
-            case _, None if not recursed:
-                return None
-            case _, None:
-                return lhs
-            case dict(), dict():
-                return {
-                    k: _merge(k, lhs.get(k), rhs.get(k), recursed=True)
-                    for k in lhs | rhs
-                }
-            case list(), list():
-                return lhs + rhs
-            case list(), str() | bytes():
-                assert False
-            case list(), typing.Iterable():
-                return lhs + list(rhs)
-            case Element(), Element():
-                assert type(lhs) is type(rhs)
-                data = {
-                    f.name: _merge(
-                        f.name,
-                        getattr(lhs, f.name),
-                        getattr(rhs, f.name),
-                        recursed=True,
-                    )
-                    for f in fields(lhs)
-                }
-                return type(lhs)(**data)
-            case _:
-                assert type(lhs) is type(rhs)
-                return rhs
-    except AssertionError as e:
-        _ctx.error(f"cannot assign `{rhs!r}` (of type {type(rhs)}) to `{field}`")
+    match (lhs, rhs):
+        case None, _:
+            return rhs
+        case _, None if not recursed:
+            return None
+        case _, None:
+            return lhs
+        case dict(), dict():
+            return {
+                k: _merge(k, lhs.get(k), rhs.get(k), recursed=True) for k in lhs | rhs
+            }
+        case list(), list():
+            return lhs + rhs
+        case list(), str() | bytes():
+            assert False
+        case list(), typing.Iterable():
+            return lhs + list(rhs)
+        case Element(), Element():
+            data = {
+                f.name: _merge(
+                    f.name,
+                    getattr(lhs, f.name),
+                    getattr(rhs, f.name),
+                    recursed=True,
+                )
+                for f in fields(lhs)
+            }
+            return type(lhs)(**data)
+        case _:
+            return rhs
 
 
 class GenerationError(Exception):
@@ -1031,7 +1051,7 @@ def needs(*args: RefExpr) -> list[str]:
         )
     else:
         # this checks and autofills needs
-        _ctx.validate([*args])
+        _ctx.validate([*args], target=_ctx.current_job, field="needs")
     return prereqs
 
 
@@ -1264,7 +1284,6 @@ def permissions(
     security_events: Permission | None = None,
     statuses: Permission | None = None,
 ):
-    # TODO bake type checking in `_ctx.validate`, which would check permissions are set correctly
     perms = locals()
     perms.pop("value")
     if value is not None and any(p is not None for p in perms.values()):

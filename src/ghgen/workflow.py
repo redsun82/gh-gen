@@ -31,7 +31,7 @@ def _with_flow_style(v: dict | list) -> CommentedSeq | CommentedMap:
     return ret
 
 
-class Input[T](Element):
+class Input(Element):
     Type: typing.ClassVar[type] = typing.Literal[
         "boolean", "choice", "number", "environment", "string"
     ]
@@ -40,7 +40,7 @@ class Input[T](Element):
     _: dataclasses.KW_ONLY
     id: str
     required: bool = False
-    default: T
+    default: str | bool | int | float | dict[str, str]
     type: Type = "string"
     options: list[str]
 
@@ -49,20 +49,15 @@ class Input[T](Element):
 
     def __post_init__(self):
         if self.default is not None:
-            self.type = type(self.default)
-        if self.type is bool:
-            self.type = "boolean"
-        elif self.type in (int, float):
-            self.type = "number"
-        elif self.type is str:
-            self.type = "string"
-        elif typing.get_origin(self.type) is typing.Literal:
-            self.options = list(typing.get_args(self.type))
-            self.type = "choice"
-        elif (typing.get_origin(self.type) or self.type) is dict:
-            self.type = "environment"
-        elif self.type not in (None,) + tuple(typing.get_args(self.Type)):
-            raise ValueError(f"unexpected input type `{self.type}`")
+            t = type(self.default)
+            if t is bool:
+                self.type = "boolean"
+            elif t in (int, float):
+                self.type = "number"
+            elif t is str:
+                self.type = "string"
+            elif t is dict:
+                self.type = "environment"
         if self.options:
             self.type = "choice"
 
@@ -413,7 +408,7 @@ class Matrix(Element):
 
 
 class Strategy(Element):
-    matrix: Matrix
+    matrix: Matrix | Expr
     fail_fast: Value
     max_parallel: Value
 
@@ -461,10 +456,10 @@ default_runner = "ubuntu-latest"
 
 
 class Job(Element):
-    name: str
+    name: Value
     permissions: Permissions | typing.Literal["read-all", "write-all"]
     needs: list[str]
-    runs_on: str
+    runs_on: Value
     container: Container
     services: list[Service]
     outputs: dict[str, Value]
@@ -479,7 +474,7 @@ class Job(Element):
 
 
 class Workflow(Element):
-    name: str
+    name: Value
     on: On = field(default_factory=On)
     permissions: Permissions | typing.Literal["read-all", "write-all"]
     env: dict[str, Value]
