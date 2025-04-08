@@ -451,3 +451,18 @@ def test_wrong_defaults(error):
         )
         defaults.run.shell(["foo", "bar"])
         run("")
+
+
+@expect_errors
+def test_wrong_concurrency(error):
+    on.workflow_dispatch()
+    error("`secrets` cannot be used in `concurrency`")
+    concurrency(group=secrets.FOO)
+
+    @job
+    def j():
+        error("`secrets` cannot be used in `concurrency`")
+        concurrency(group=secrets.FOO)
+        # TODO error()
+        # concurrency(group=env.BAR)
+        step("")

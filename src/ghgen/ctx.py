@@ -1328,6 +1328,25 @@ class _DefaultsUpdater(_Updater[JobDefaults | WorkflowDefaults]):
 
 defaults = _DefaultsUpdater()
 
+
+class _ConcurrencyUpdater(_Updater[Concurrency]):
+    def __init__(self):
+        super().__init__(_get_job_or_workflow, ("concurrency",))
+
+    def group(self, value: Value | None) -> typing.Self:
+        return self._update("group", _value, value)
+
+    def cancel_in_progress(self, value: Value | None = True) -> typing.Self:
+        return self._update("cancel_in_progress", _value, value)
+
+    def __call__(
+        self, *, group: Value | None = None, cancel_in_progress: Value | None = None
+    ) -> "_ConcurrencyUpdater":
+        return _ConcurrencyUpdater().group(group).cancel_in_progress(cancel_in_progress)
+
+
+concurrency = _ConcurrencyUpdater()
+
 cancelled = function("cancelled", 0)
 fromJson = function("fromJson")
 contains = function("contains", 2)

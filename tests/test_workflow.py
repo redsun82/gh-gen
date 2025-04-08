@@ -1203,3 +1203,44 @@ def test_defaults():
     def j():
         defaults.run.shell("fish").working_directory("bar")
         run("echo hello")
+
+
+@expect(
+    """
+# generated from test_workflow.py::test_concurrency
+on:
+  workflow_dispatch: {}
+concurrency:
+  group: ${{ github.ref || github.run_id }}
+  cancel-in-progress: true
+jobs:
+  j1:
+    runs-on: ubuntu-latest
+    concurrency:
+      group: bar
+      cancel-in-progress: ${{ !contains(github.ref, 'release') }}
+    steps:
+    - run: echo hello
+  j2:
+    runs-on: ubuntu-latest
+    concurrency:
+      group: bar
+    steps:
+    - run: ''
+"""
+)
+def test_concurrency():
+    on.workflow_dispatch()
+
+    concurrency.group(f"{github.ref | github.run_id}")
+    concurrency.cancel_in_progress()
+
+    @job
+    def j1():
+        concurrency(group="bar", cancel_in_progress=~contains(github.ref, "release"))
+        run("echo hello")
+
+    @job
+    def j2():
+        concurrency(group="bar")
+        run("")

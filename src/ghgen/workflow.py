@@ -460,6 +460,11 @@ class JobDefaults(Element):
     run: Run
 
 
+class Concurrency(Element):
+    group: Value
+    cancel_in_progress: Value
+
+
 default_runner = "ubuntu-latest"
 
 
@@ -468,6 +473,7 @@ class Job(Element):
     permissions: Permissions | typing.Literal["read-all", "write-all"]
     needs: list[str]
     runs_on: Value
+    concurrency: Concurrency
     container: Container
     services: list[Service]
     outputs: dict[str, Value]
@@ -494,6 +500,7 @@ class Workflow(Element):
     name: Value
     on: On = field(default_factory=On)
     permissions: Permissions | typing.Literal["read-all", "write-all"]
+    concurrency: Concurrency
     env: dict[str, Value]
     defaults: WorkflowDefaults
     jobs: dict[str, Job] = field(default_factory=dict)

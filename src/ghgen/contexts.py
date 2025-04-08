@@ -321,3 +321,10 @@ class ContextBase(threading.local, RuleSet):
             or (isinstance(target, Job) and field == "strategy"),
             "`strategy` context cannot be used while defining the strategy itself",
         )
+
+    @rule(secrets)
+    def v(self, *, target: typing.Any = None, field: str | None = None):
+        return self.check(
+            not isinstance(target, Concurrency),
+            "`secrets` cannot be used in `concurrency`",
+        )
