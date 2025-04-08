@@ -452,6 +452,14 @@ class Permissions(Element):
     statuses: Permission
 
 
+class JobDefaults(Element):
+    class Run(Element):
+        shell: Value
+        working_directory: Value
+
+    run: Run
+
+
 default_runner = "ubuntu-latest"
 
 
@@ -465,6 +473,7 @@ class Job(Element):
     outputs: dict[str, Value]
     strategy: Strategy
     env: dict[str, Value]
+    defaults: JobDefaults
     steps: list[Step]
     uses: str
     with_: dict[str, Value]
@@ -473,9 +482,18 @@ class Job(Element):
         return _dictionarize(_set_flow_style(super().asdict(), "needs"), "services")
 
 
+class WorkflowDefaults(Element):
+    class Run(Element):
+        shell: str
+        working_directory: str
+
+    run: Run
+
+
 class Workflow(Element):
     name: Value
     on: On = field(default_factory=On)
     permissions: Permissions | typing.Literal["read-all", "write-all"]
     env: dict[str, Value]
+    defaults: WorkflowDefaults
     jobs: dict[str, Job] = field(default_factory=dict)

@@ -414,7 +414,7 @@ def test_wrong_permissions(error):
     )
     permissions("read-all", attestations="write")
     error(
-        "expected `permissions` to be of type `Union[src.ghgen.workflow.Permissions, Literal['read-all', 'write-all'], NoneType]`, got `'foo'` of type `str`"
+        "expected `permissions` to be of type `Union[Permissions, Literal['read-all', 'write-all'], NoneType]`, got `'foo'` of type `str`"
     )
     permissions("foo")
 
@@ -428,4 +428,26 @@ def test_wrong_permissions(error):
             "expected `id_token` to be of type `Optional[Literal['write', 'none']]`, got `'read'` of type `str`"
         )
         permissions(id_token="read")
+        run("")
+
+
+@expect_errors
+def test_wrong_defaults(error):
+    on.workflow_dispatch()
+    error(
+        "expected `working_directory` to be of type `str | None`, got `github.actor` of type `RefExpr`"
+    )
+    defaults.run.working_directory(github.actor)
+    error(
+        "expected `shell` to be of type `str | None`, got `'${{ \\x00github.actor && 42 }}'` of type `str`"
+    )
+    defaults.run.shell(f"{github.actor & 42}")
+
+    @job
+    def j():
+        defaults.run.working_directory(github.actor)
+        error(
+            "expected `shell` to be of type `str | bool | int | float | Expr | None`, got `['foo', 'bar']` of type `list`"
+        )
+        defaults.run.shell(["foo", "bar"])
         run("")

@@ -63,6 +63,9 @@ class Expr(abc.ABC):
     def __str__(self) -> str:
         return f"${{{{ {self._syntax} }}}}"
 
+    def __repr__(self) -> str:
+        return self._instantiate(self._syntax)
+
     def _as_operand(self, op_precedence: int) -> str:
         if self._precedence > op_precedence:
             return f"({self._syntax})"
@@ -142,7 +145,7 @@ def reftree(x: typing.Any) -> RefTree:
     return ret
 
 
-@dataclasses.dataclass(frozen=True, eq=False)
+@dataclasses.dataclass(frozen=True, eq=False, repr=False)
 class RefExpr(Expr):
     _segments: tuple[str, ...]
     _child_factory: typing.Callable[[str], typing.Self] | None = None
@@ -256,7 +259,7 @@ _op_precedence = (
 _op_precedence = {op: i for i, ops in enumerate(_op_precedence) for op in ops}
 
 
-@dataclasses.dataclass(frozen=True, eq=False)
+@dataclasses.dataclass(frozen=True, eq=False, repr=False)
 class LiteralExpr[T](Expr):
     _value: T
 
@@ -267,7 +270,7 @@ class LiteralExpr[T](Expr):
         return repr(self._value)
 
 
-@dataclasses.dataclass(frozen=True, eq=False)
+@dataclasses.dataclass(frozen=True, eq=False, repr=False)
 class BinOpExpr(Expr):
     _left: Expr
     _right: Expr
@@ -286,7 +289,7 @@ class BinOpExpr(Expr):
         yield from self._right._get_paths()
 
 
-@dataclasses.dataclass(frozen=True, eq=False)
+@dataclasses.dataclass(frozen=True, eq=False, repr=False)
 class NotExpr(Expr):
     _expr: Expr
 
@@ -302,7 +305,7 @@ class NotExpr(Expr):
         yield from self._expr._get_paths()
 
 
-@dataclasses.dataclass(frozen=True, eq=False)
+@dataclasses.dataclass(frozen=True, eq=False, repr=False)
 class ItemExpr(Expr):
     _expr: Expr
     _index: Expr
@@ -320,7 +323,7 @@ class ItemExpr(Expr):
         yield from self._index._get_paths()
 
 
-@dataclasses.dataclass(frozen=True, eq=False)
+@dataclasses.dataclass(frozen=True, eq=False, repr=False)
 class DotExpr(Expr):
     _expr: Expr
     _attr: str
@@ -333,7 +336,7 @@ class DotExpr(Expr):
         yield from self._expr._get_paths()
 
 
-@dataclasses.dataclass(frozen=True, eq=False)
+@dataclasses.dataclass(frozen=True, eq=False, repr=False)
 class CallExpr(Expr):
     _function: str
     _args: tuple[Expr, ...]

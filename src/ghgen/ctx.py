@@ -4,6 +4,7 @@ import dataclasses
 import enum
 import inspect
 import itertools
+import re
 import textwrap
 import types
 import typing
@@ -63,6 +64,10 @@ def _get_user_frame_info() -> inspect.Traceback:
 def _typecheck(val: typing.Any, ty: typing.Type) -> bool:
     origin = typing.get_origin(ty)
     match origin:
+        case None if ty is str:
+            return isinstance(val, ty) and "${{" not in val
+        case None if ty is Expr:
+            return isinstance(val, ty) or (isinstance(val, str) and "${{" in val)
         case None:
             return isinstance(val, ty)
         case typing.Union | types.UnionType:
@@ -202,7 +207,9 @@ class _Context(ContextBase):
             field_info = next(f for f in fields(target) if f.name == field)
             assert field_info
             if not _typecheck(value, field_info.type):
-                log_type = str(field_info.type).replace("typing.", "")
+                log_type = re.sub(
+                    r"(typing|src\.ghgen\.\w+)\.", "", str(field_info.type)
+                )
                 self.error(
                     f"expected `{field}` to be of type `{log_type}`, got `{value!r}` of type `{type(value).__name__}`"
                 )
@@ -1297,6 +1304,29 @@ def permissions(
         for field, val in perms.items():
             updater._update(field, _value, val)
 
+
+class _DefaultsUpdater(_Updater[JobDefaults | WorkflowDefaults]):
+    def __init__(self):
+        super().__init__(_get_job_or_workflow, ("defaults",))
+
+    class _Run(_Updater[JobDefaults.Run | WorkflowDefaults.Run]):
+        def shell(self, value: Value) -> typing.Self:
+            return self._update("shell", _value, value)
+
+        def working_directory(self, value: Value) -> typing.Self:
+            return self._update("working_directory", _value, value)
+
+        def __call__(
+            self, *, shell: Value | None = None, working_directory: Value | None = None
+        ) -> "_DefaultsUpdater":
+            return self.shell(shell).working_directory(working_directory)
+
+    @property
+    def run(self) -> _Run:
+        return self._sub_updater(self._Run, "run")
+
+
+defaults = _DefaultsUpdater()
 
 cancelled = function("cancelled", 0)
 fromJson = function("fromJson")

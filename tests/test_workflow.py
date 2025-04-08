@@ -1172,3 +1172,34 @@ def test_permissions():
     def j3():
         permissions(packages="read", discussions="write")
         run("")
+
+
+@expect(
+    """
+# generated from test_workflow.py::test_defaults
+on:
+  workflow_dispatch: {}
+defaults:
+  run:
+    shell: zsh
+    working-directory: foo
+jobs:
+  j:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: fish
+        working-directory: bar
+    steps:
+    - run: echo hello
+"""
+)
+def test_defaults():
+    on.workflow_dispatch()
+    defaults.run(shell="zsh")
+    defaults.run.working_directory("foo")
+
+    @job
+    def j():
+        defaults.run.shell("fish").working_directory("bar")
+        run("echo hello")
