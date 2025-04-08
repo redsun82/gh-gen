@@ -1284,7 +1284,7 @@ def permissions(
     security_events: Permission | None = None,
     statuses: Permission | None = None,
 ):
-    perms = locals()
+    perms = dict(locals())
     perms.pop("value")
     if value is not None and any(p is not None for p in perms.values()):
         _ctx.error(
@@ -1294,23 +1294,8 @@ def permissions(
         _update_element(_get_job_or_workflow, "permissions", _value, value)
     else:
         updater = _Updater(_get_job_or_workflow, ("permissions",))
-        for field in (
-            "actions",
-            "attestations",
-            "checks",
-            "contents",
-            "deployments",
-            "id_token",
-            "issues",
-            "discussions",
-            "packages",
-            "pages",
-            "pull_requests",
-            "repository_projects",
-            "security_events",
-            "statuses",
-        ):
-            updater._update(field, _value, locals()[field])
+        for field, val in perms.items():
+            updater._update(field, _value, val)
 
 
 cancelled = function("cancelled", 0)
