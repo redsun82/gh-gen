@@ -125,7 +125,6 @@ matrix = Contexts.matrix
 runner = Contexts.runner
 secrets = Contexts.secrets
 vars = Contexts.vars
-env = Contexts.env
 github = Contexts.github
 
 # we don't expose the following
@@ -134,6 +133,7 @@ github = Contexts.github
 # inputs: handled via `input` function
 # strategy: replaced by a ProxyExpr to also be the `strategy` field setter
 # job: replaced by a ProxyExpr to also be the `@job` decorator
+# env: replaced by a ProxyExpr to also be the `env` field setter
 
 
 @dataclasses.dataclass
@@ -162,7 +162,7 @@ class ContextBase(threading.local, RuleSet):
         return cond
 
     @rule()
-    def v(self, *, target: typing.Any = None, field: str | None = None):
+    def v(self, *, target: typing.Any = None, field: str | None = None) -> bool:
         match target, field:
             case (WorkflowCall(), "outputs"):
                 return True
@@ -173,7 +173,7 @@ class ContextBase(threading.local, RuleSet):
                 return True
 
     @rule(steps)
-    def v(self, *, target: typing.Any = None, field: str | None = None):
+    def v(self, *, target: typing.Any = None, field: str | None = None) -> bool:
         return self.check(
             self.current_job,
             "`steps` can only be used in a job, did you forget a `@job` decoration?",
@@ -183,7 +183,7 @@ class ContextBase(threading.local, RuleSet):
         )
 
     @rule(steps._)
-    def v(self, id: str, *, target: typing.Any = None, **kwargs):
+    def v(self, id: str, *, target: typing.Any = None, **kwargs) -> bool:
         return self.check(
             self._knows_step_id(target, id),
             f"step `{id}` not defined yet in job `{self.current_job_id}`",
@@ -195,7 +195,7 @@ class ContextBase(threading.local, RuleSet):
         id: str,
         output: str,
         **kwargs,
-    ):
+    ) -> bool:
         step = next(s for s in self.current_job.steps if s.id == id)
         return self.check(
             step.outputs and step.outputs and output in step.outputs,
@@ -203,7 +203,7 @@ class ContextBase(threading.local, RuleSet):
         )
 
     @rule(matrix)
-    def v(self, *, target: typing.Any = None, field: str | None = None):
+    def v(self, *, target: typing.Any = None, field: str | None = None) -> bool:
         return self.check(
             self.current_job
             and self.current_job.strategy is not None
@@ -216,7 +216,7 @@ class ContextBase(threading.local, RuleSet):
         )
 
     @rule(matrix._)
-    def v(self, id, **kwargs):
+    def v(self, id, **kwargs) -> bool:
         m = self.current_job.strategy.matrix
         # don't try to be smart if using something like an Expr
         return not isinstance(m, Matrix) or self.check(
@@ -226,42 +226,43 @@ class ContextBase(threading.local, RuleSet):
         )
 
     @rule(Contexts.job)
-    def v(self, **kwargs):
+    def v(self, **kwargs) -> bool:
         return self.check(self.current_job, "`job` can only be used in a job")
 
     @rule(Contexts.job.container)
-    def v(self, **kwargs):
+    def v(self, **kwargs) -> bool:
         return self.check(
             self.current_job.container,
             "`job.container` can only be used in a containerized job",
         )
 
     @rule(Contexts.job.services)
-    def v(self, **kwargs):
+    def v(self, **kwargs) -> bool:
         return self.check(
             self.current_job.services,
             "`job.services` can only be used in a job with services",
         )
 
     @rule(Contexts.job.services._)
-    def v(self, id, **kwargs):
+    def v(self, id, **kwargs) -> bool:
         return self.check(
             id in (s.id for s in self.current_job.services),
             f"no `{id}` service defined in `job.services`",
         )
 
     @rule(Contexts.jobs)
-    def v(self, *, target: typing.Any = None, field: str | None = None):
+    def v(self, *, target: typing.Any = None, field: str | None = None) -> bool:
         match target, field:
             case (WorkflowCall(), "outputs") | (Output(), _):
-                pass
+                return True
             case _:
                 self.error(
                     "`jobs` is only allowed while declaring worfklow outputs in a workflow call trigger",
                 )
+                return False
 
     @rule(Contexts.jobs._)
-    def v(self, id, **kwargs):
+    def v(self, id, **kwargs) -> bool:
         return self.check(
             id in self.current_workflow.jobs,
             f"no `{id}` job declared yet in this workflow",
@@ -269,7 +270,7 @@ class ContextBase(threading.local, RuleSet):
 
     @rule(Contexts.jobs._.outputs._)
     @rule(Contexts.needs._.outputs._)
-    def v(self, id, out, **kwargs):
+    def v(self, id, out, **kwargs) -> bool:
         job = self.current_workflow.jobs[id]
         return self.check(
             job.outputs and out in job.outputs,
@@ -277,7 +278,7 @@ class ContextBase(threading.local, RuleSet):
         )
 
     @rule(Contexts.needs)
-    def v(self, **kwargs):
+    def v(self, **kwargs) -> bool:
         if not self.check(
             self.current_job, "job handle used as an expression outside a job"
         ):
@@ -288,7 +289,7 @@ class ContextBase(threading.local, RuleSet):
         return True
 
     @rule(Contexts.needs._)
-    def v(self, id, **kwargs):
+    def v(self, id, **kwargs) -> bool:
         if not self.check(
             id in self.current_workflow.jobs,
             f"no `{id}` job declared yet in this workflow",
@@ -299,7 +300,7 @@ class ContextBase(threading.local, RuleSet):
         return True
 
     @rule(runner)
-    def v(self, *, target: typing.Any = None, field: str | None = None):
+    def v(self, *, target: typing.Any = None, field: str | None = None) -> bool:
         return (
             self.check(self.current_job, "`runner` can only be used in a job")
             and self.check(
@@ -312,7 +313,7 @@ class ContextBase(threading.local, RuleSet):
         )
 
     @rule(Contexts.strategy)
-    def v(self, *, target: typing.Any = None, field: str | None = None):
+    def v(self, *, target: typing.Any = None, field: str | None = None) -> bool:
         return self.check(
             self.current_job,
             "`strategy` can only be used inside a job",
@@ -323,8 +324,18 @@ class ContextBase(threading.local, RuleSet):
         )
 
     @rule(secrets)
-    def v(self, *, target: typing.Any = None, field: str | None = None):
+    def v(self, *, target: typing.Any = None, **kwargs) -> bool:
         return self.check(
             not isinstance(target, Concurrency),
             "`secrets` cannot be used in `concurrency`",
+        )
+
+    @rule(Contexts.env)
+    def v(self, target: typing.Any = None, field: str | None = None) -> bool:
+        return self.check(
+            isinstance(target, Step),
+            "`env` can only be used in steps",
+        ) and self.check(
+            field != "uses",
+            "`env` cannot be used for `id` and `uses`",
         )

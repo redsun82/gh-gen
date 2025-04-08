@@ -213,6 +213,7 @@ class _Context(ContextBase):
                 self.error(
                     f"expected `{field}` to be of type `{log_type}`, got `{value!r}` of type `{type(value).__name__}`"
                 )
+                return False
         return super().validate(value, target=target, field=field)
 
 
@@ -324,7 +325,8 @@ def _update_element[T, U](
 ):
     parent = start(field)
     value = ty(field, value)
-    _ctx.validate(value, target=parent, field=field)
+    if not _ctx.validate(value, target=parent, field=field):
+        return
     old_value = getattr(parent, field)
     new_value = _merge(field, old_value, value)
     if new_value is not None:
@@ -371,7 +373,8 @@ class _Updater[T]:
         ret = self._ensure()
         value = ty(field, value)
         el = ret._element
-        _ctx.validate(value, target=el, field=field)
+        if not _ctx.validate(value, target=el, field=field):
+            return ret
         match field:
             case str():
                 old_value = getattr(el, field)
@@ -436,7 +439,10 @@ class _IdElementUpdater[T](_Updater[T]):
     def id(self, id: str | None) -> typing.Self:
         ret = self._ensure()
         el = ret._element
-        if id is None:
+        # _update will rerun this validation, but we need to exit early to validate `id` being `str`
+        if not _ctx.validate(id, target=el, field="id"):
+            return ret
+        elif id is None:
             ret._update("id", _value, None)
         elif el.id is not None:
             _ctx.error(f"id was already specified for this element as `{el.id}`")
@@ -692,13 +698,16 @@ class _OnUpdater(_Updater):
                 return self._update("description", _text, value)
 
             def value(self, value: Value | None):
+                print("PRE", value, _ctx.current_workflow)
                 ret = self._ensure()
                 if value is not None:
                     ret.ensure_id()
                 match value:
                     case Expr() | str():
                         value = str(value).replace("\0needs", "\0jobs")
-                return ret._update("value", _value, value)
+                ret._update("value", _value, value)
+                print("POST", value, _ctx.current_workflow)
+                return ret
 
         @property
         def secret(self) -> _Secret:
@@ -736,17 +745,29 @@ def name(name: str):
     _update_element(_get_job_or_workflow, "name", _value, name)
 
 
-def env(
-    mapping: ValueMapping = None,
-    /,
-    **kwargs: Value,
-):
-    _update_element(
-        _get_job_or_workflow,
-        "env",
-        _map,
-        (mapping, kwargs),
-    )
+class _EnvUpdater(ProxyExpr, _Updater[dict[str, Value]]):
+    def __init__(self):
+        ProxyExpr.__init__(self)
+        _Updater.__init__(self, _get_job_or_workflow, ("env",))
+
+    def _get_expr(self) -> Expr:
+        return Contexts.env
+
+    def __call__(
+        self,
+        mapping: ValueMapping = None,
+        /,
+        **kwargs: Value,
+    ):
+        _update_element(
+            _get_job_or_workflow,
+            "env",
+            _map,
+            (mapping, kwargs),
+        )
+
+
+env = _EnvUpdater()
 
 
 def runs_on(runner: Value):
@@ -1334,10 +1355,10 @@ class _ConcurrencyUpdater(_Updater[Concurrency]):
         super().__init__(_get_job_or_workflow, ("concurrency",))
 
     def group(self, value: Value | None) -> typing.Self:
-        return self._update("group", _value, value)
+        return _ConcurrencyUpdater()._update("group", _value, value)
 
     def cancel_in_progress(self, value: Value | None = True) -> typing.Self:
-        return self._update("cancel_in_progress", _value, value)
+        return _ConcurrencyUpdater()._update("cancel_in_progress", _value, value)
 
     def __call__(
         self, *, group: Value | None = None, cancel_in_progress: Value | None = None

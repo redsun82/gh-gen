@@ -463,6 +463,28 @@ def test_wrong_concurrency(error):
     def j():
         error("`secrets` cannot be used in `concurrency`")
         concurrency(group=secrets.FOO)
-        # TODO error()
-        # concurrency(group=env.BAR)
         step("")
+
+
+@expect_errors
+def test_wrong_env_usage(error):
+    on.workflow_dispatch()
+
+    error("`env` can only be used in steps")
+    concurrency.group(env.FOO)
+
+    @job
+    def j():
+        error("`env` can only be used in steps")
+        runs_on(env.RUNNER)
+        error("`env` can only be used in steps")
+        concurrency(group=env.FOO)
+        error(
+            "expected `id` to be of type `str | None`, got `env.ID` of type `RefExpr`"
+        )
+        step.id(env.ID)
+        error(
+            "expected `uses` to be of type `str | None`, got `env.USES` of type `RefExpr`"
+        )
+        step.uses(env.USES)
+        step.run(env.CODE)
