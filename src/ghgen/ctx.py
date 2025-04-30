@@ -778,6 +778,11 @@ def runs_on(runner: Value):
     _update_element(_get_job, "runs_on", _value, runner)
 
 
+def environment(name: Value, *, url: Value | None = None):
+    value = name if url is None else Environment(name=name, url=url)
+    _update_element(_get_job, "environment", _value, value)
+
+
 class _StrategyUpdater(ProxyExpr, _Updater[Strategy]):
     def __init__(self):
         ProxyExpr.__init__(self)

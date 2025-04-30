@@ -1244,3 +1244,37 @@ def test_concurrency():
     def j2():
         concurrency(group="bar")
         run("")
+
+
+@expect(
+    """
+# generated from test_workflow.py::test_environment
+on:
+  workflow_dispatch: {}
+jobs:
+  j1:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+    - run: ''
+  j2:
+    runs-on: ubuntu-latest
+    environment:
+      name: staging
+      url: https://example.com
+    steps:
+    - run: ''
+"""
+)
+def test_environment():
+    on.workflow_dispatch()
+
+    @job
+    def j1():
+        environment("production")
+        run("")
+
+    @job
+    def j2():
+        environment(name="staging", url="https://example.com")
+        run("")

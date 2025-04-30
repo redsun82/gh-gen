@@ -468,12 +468,18 @@ class Concurrency(Element):
 default_runner = "ubuntu-latest"
 
 
+class Environment(Element):
+    name: Value
+    url: Value
+
+
 class Job(Element):
     name: Value
     permissions: Permissions | typing.Literal["read-all", "write-all"]
     needs: list[str]
     runs_on: Value
     concurrency: Concurrency
+    environment: Value | Environment
     container: Container
     services: list[Service]
     outputs: dict[str, Value]
