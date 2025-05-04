@@ -924,7 +924,32 @@ class _ServiceUpdater(_IdElementUpdater[Service], _ContainerUpdater):
 service = _ServiceUpdater(_get_job, ("services", "*"))
 
 
-def call(target: str, **kwargs: Value):
+class _JobCallUpdater:
+    def with_(self, mapping: ValueMapping = None, /, **kwargs: Value) -> typing.Self:
+        j = _ctx.current_job
+        j_id = _ctx.current_job_id
+        _update_element(_get_job, "with_", _field_map, (mapping, kwargs))
+        return self
+
+    def secrets(
+        self,
+        inherit_or_mapping: typing.Literal["inherit"] | ValueMapping = None,
+        /,
+        **kwargs: Value,
+    ) -> typing.Self:
+        j_id = _ctx.current_job_id
+        if j_id and inherit_or_mapping == "inherit" and kwargs:
+            _ctx.error(f'job `{j_id}` specifies both `"inherit"` and named secrets')
+        elif inherit_or_mapping == "inherit":
+            _update_element(_get_job, "secrets", _value, "inherit")
+        else:
+            _update_element(
+                _get_job, "secrets", _field_map, (inherit_or_mapping, kwargs)
+            )
+        self
+
+
+def call(target: str, **kwargs: Value) -> _JobCallUpdater:
     j = _ctx.current_job
     j_id = _ctx.current_job_id
     if j and j.uses:
@@ -935,20 +960,10 @@ def call(target: str, **kwargs: Value):
         _ctx.error(f"job `{j_id}` specifies both `uses` (with `call`) and `runs-on`")
     else:
         _update_element(_get_job, "uses", _value, target)
-        if kwargs:
-            with_(**kwargs)
-
-
-def with_(mapping: ValueMapping = None, /, **kwargs: Value):
-    j = _ctx.current_job
-    j_id = _ctx.current_job_id
-    if j and not j.uses:
-        # TODO enforce `call(bla).with_(...)` rather than this
-        _ctx.error(
-            f"job `{j_id}` must specify `uses` (via `call`) in order to specify `with`"
-        )
-    else:
-        _update_element(_get_job, "with_", _field_map, (mapping, kwargs))
+    ret = _JobCallUpdater()
+    if kwargs:
+        ret.with_(**kwargs)
+    return ret
 
 
 def outputs(*args: typing.Union[RefExpr, "_StepUpdater"], **kwargs: typing.Any):

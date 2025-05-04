@@ -337,8 +337,6 @@ def test_wrong_calls(error):
         run("echo hello")
         error("job `j1` specifies both `uses` (with `call`) and steps")
         call("foo")
-        error("job `j1` must specify `uses` (via `call`) in order to specify `with`")
-        with_(arg="bar")
 
     @job
     def j2():
@@ -352,6 +350,11 @@ def test_wrong_calls(error):
             "job `j2` cannot set `runs-on` as it has already specified `uses` (with `call`)"
         )
         runs_on("ubuntu-latest")
+
+    @job
+    def j3():
+        error('job `j3` specifies both `"inherit"` and named secrets')
+        call("foo").secrets("inherit", a=secrets.foo)
 
 
 def test_on_must_be_set(error):

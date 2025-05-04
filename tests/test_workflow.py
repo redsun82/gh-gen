@@ -1082,6 +1082,14 @@ jobs:
     with:
       arg-1: foo
       arg_2: bar
+  j3:
+    uses: foo
+    secrets: inherit
+  j4:
+    uses: bar
+    secrets:
+      a: ${{ secrets.baz }}
+      b: ${{ secrets.bazz }}
 """
 )
 def test_call():
@@ -1089,13 +1097,19 @@ def test_call():
 
     @job
     def j1():
-        call("foo")
-        with_(arg_1="foo", arg__2="bar")
-        with_((("arg_3", "baz"),))
+        call("foo").with_(arg_1="foo", arg__2="bar").with_((("arg_3", "baz"),))
 
     @job
     def j2():
         call("foo", arg_1="foo", arg__2="bar")
+
+    @job
+    def j3():
+        call("foo").secrets("inherit")
+
+    @job
+    def j4():
+        call("bar").secrets(a=secrets.baz, b=secrets.bazz)
 
 
 @expect(

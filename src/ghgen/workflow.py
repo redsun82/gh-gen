@@ -489,6 +489,7 @@ class Job(Element):
     steps: list[Step]
     uses: str
     with_: dict[str, Value]
+    secrets: dict[str, Value] | typing.Literal["inherit"]
 
     def asdict(self) -> typing.Any:
         return _dictionarize(_set_flow_style(super().asdict(), "needs"), "services")
