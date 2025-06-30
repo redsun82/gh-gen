@@ -416,8 +416,10 @@ def test_steps():
         run("echo $WHO").env(WHO="world")
         step("catastrophe").run("echo oh no").if_("failure()")
         step.uses("actions/checkout@v4").with_(ref="dev")
-        use("./my_action").with_(arg_1="foo", arg__2="bar").with_((("arg_3", "baz"),))
-        use("./my_other_action", arg_1="foo", arg__2="bar")
+        step.uses("./my_action").with_(arg_1="foo", arg__2="bar").with_(
+            (("arg_3", "baz"),)
+        )
+        step.uses("./my_other_action", arg_1="foo", arg__2="bar")
         run("one").continue_on_error()
         run("two").continue_on_error("value")
 
@@ -1081,7 +1083,7 @@ jobs:
     uses: foo
     with:
       arg-1: foo
-      arg_2: bar
+      arg-2: bar
   j3:
     uses: foo
     secrets: inherit
@@ -1097,19 +1099,19 @@ def test_call():
 
     @job
     def j1():
-        call("foo").with_(arg_1="foo", arg__2="bar").with_((("arg_3", "baz"),))
+        uses("foo").with_(arg_1="foo", arg__2="bar").with_((("arg_3", "baz"),))
 
     @job
     def j2():
-        call("foo", arg_1="foo", arg__2="bar")
+        uses("foo", arg_1="foo", arg_2="bar")
 
     @job
     def j3():
-        call("foo").secrets("inherit")
+        uses("foo").secrets("inherit")
 
     @job
     def j4():
-        call("bar").secrets(a=secrets.baz, b=secrets.bazz)
+        uses("bar").secrets(a=secrets.baz, b=secrets.bazz)
 
 
 @expect(

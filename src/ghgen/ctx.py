@@ -949,15 +949,15 @@ class _JobCallUpdater:
         self
 
 
-def call(target: str, **kwargs: Value) -> _JobCallUpdater:
+def uses(target: str, **kwargs: Value) -> _JobCallUpdater:
     j = _ctx.current_job
     j_id = _ctx.current_job_id
     if j and j.uses:
-        _ctx.error(f"job `{j_id}` has already specified `uses` (with `call`)")
+        _ctx.error(f"job `{j_id}` has already specified `uses`")
     elif j and j.steps:
-        _ctx.error(f"job `{j_id}` specifies both `uses` (with `call`) and steps")
+        _ctx.error(f"job `{j_id}` specifies both `uses` and steps")
     elif j and j.runs_on:
-        _ctx.error(f"job `{j_id}` specifies both `uses` (with `call`) and `runs-on`")
+        _ctx.error(f"job `{j_id}` specifies both `uses` and `runs-on`")
     else:
         _update_element(_get_job, "uses", _value, target)
     ret = _JobCallUpdater()
@@ -1282,7 +1282,6 @@ class _StepUpdater(ProxyExpr, _IdElementUpdater[Step]):
 
 step = _StepUpdater(_get_job, ("steps", "*"))
 run = step.run
-use = step.uses
 
 
 def _dump_step_outputs(s: Step):

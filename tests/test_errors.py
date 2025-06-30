@@ -335,14 +335,14 @@ def test_wrong_calls(error):
     @job
     def j1():
         run("echo hello")
-        error("job `j1` specifies both `uses` (with `call`) and steps")
-        call("foo")
+        error("job `j1` specifies both `uses` and steps")
+        uses("foo")
 
     @job
     def j2():
-        call("foo")
-        error("job `j2` has already specified `uses` (with `call`)")
-        call("bar")
+        uses("foo")
+        error("job `j2` has already specified `uses`")
+        uses("bar")
         error("job `j2` adds steps when `uses` is already set (by `call`)")
         run("echo hello")
         run("echo world")
@@ -354,7 +354,7 @@ def test_wrong_calls(error):
     @job
     def j3():
         error('job `j3` specifies both `"inherit"` and named secrets')
-        call("foo").secrets("inherit", a=secrets.foo)
+        uses("foo").secrets("inherit", a=secrets.foo)
 
 
 def test_on_must_be_set(error):
