@@ -949,7 +949,19 @@ class _JobCallUpdater:
         self
 
 
-def uses(target: str, **kwargs: Value) -> _JobCallUpdater:
+_action_regex = re.compile(
+    r"^(?a:(\.)|[\w-]+)/.*?(?P<action_name>[^/]+)(?(1)|@[\w.-]+)$"
+)
+
+_reusable_workflow_regex = re.compile(
+    r"^(?a:(\.)|[\w-]+/[\w-]+)/\.github/workflows/[^/]+\.yml(?(1)|@[\w.-]+)$"
+)
+
+
+def uses(target: str, **kwargs: Value) -> typing.Union[_JobCallUpdater, "_StepUpdater"]:
+    if not _reusable_workflow_regex.match(target):
+        # must be an action, create a uses step
+        return step.uses(target, **kwargs)
     j = _ctx.current_job
     j_id = _ctx.current_job_id
     if j and j.uses:
@@ -1215,16 +1227,18 @@ class _StepUpdater(ProxyExpr, _IdElementUpdater[Step]):
     def run(self, code: Value) -> typing.Self:
         return self._ensure_run_step()._update("run", _text, code)
 
-    def uses(self, source: Value, **kwargs: Value):
+    def uses(self, source: str, **kwargs: Value):
         ret = self._ensure_run_step()._update("uses", _value, source)
-        if isinstance(source, str) and not ret._element.name:
-            try:
-                _, _, action_name = source.rpartition("/")
-                action_name, _, _ = action_name.partition("@")
-                action_name = inflection.humanize(inflection.titleize(action_name))
-                ret.name(action_name)
-            except Exception:
-                pass
+        if isinstance(source, str):
+            m = _action_regex.match(source)
+            if not m:
+                _ctx.error(
+                    f"invalid action source `{source}`, must be in the form `owner/repo[/path]@ref` or `./some/path`"
+                )
+            elif not ret._element.name:
+                ret.name(
+                    inflection.humanize(inflection.titleize(m.group("action_name")))
+                )
         if kwargs:
             ret.with_(**kwargs)
         return ret

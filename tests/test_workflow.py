@@ -396,7 +396,7 @@ jobs:
         arg-1: foo
         arg_2: bar
         arg_3: baz
-    - name: My other action
+    - name: other
       uses: ./my_other_action
       with:
         arg-1: foo
@@ -415,11 +415,9 @@ def test_steps():
         step.run("echo hello").name("salutations")
         run("echo $WHO").env(WHO="world")
         step("catastrophe").run("echo oh no").if_("failure()")
-        step.uses("actions/checkout@v4").with_(ref="dev")
-        step.uses("./my_action").with_(arg_1="foo", arg__2="bar").with_(
-            (("arg_3", "baz"),)
-        )
-        step.uses("./my_other_action", arg_1="foo", arg__2="bar")
+        uses("actions/checkout@v4").with_(ref="dev")
+        uses("./my_action").with_(arg_1="foo", arg__2="bar").with_((("arg_3", "baz"),))
+        step("other").uses("./my_other_action", arg_1="foo", arg__2="bar")
         run("one").continue_on_error()
         run("two").continue_on_error("value")
 
@@ -562,7 +560,7 @@ jobs:
     steps:
     - run: |
         echo ${{ inputs.foo }}
-        echo ${{ inputs.bar }} 
+        echo ${{ inputs.bar }}
         echo ${{ inputs.baz }}
 """
 )
@@ -573,7 +571,7 @@ def test_inputs():
     baz = on.input.default(True)
     run(f"""
         echo {foo}
-        echo {bar} 
+        echo {bar}
         echo {baz}
     """)  # fmt: skip
 
@@ -1074,21 +1072,21 @@ on:
   workflow_dispatch: {}
 jobs:
   j1:
-    uses: foo
+    uses: ./.github/workflows/foo.yml
     with:
       arg-1: foo
       arg_2: bar
       arg_3: baz
   j2:
-    uses: foo
+    uses: ./.github/workflows/foo.yml
     with:
       arg-1: foo
       arg-2: bar
   j3:
-    uses: foo
+    uses: foo/bar/.github/workflows/baz.yml@v1
     secrets: inherit
   j4:
-    uses: bar
+    uses: foo/bar/.github/workflows/baz.yml@v2
     secrets:
       a: ${{ secrets.baz }}
       b: ${{ secrets.bazz }}
@@ -1099,19 +1097,23 @@ def test_call():
 
     @job
     def j1():
-        uses("foo").with_(arg_1="foo", arg__2="bar").with_((("arg_3", "baz"),))
+        uses("./.github/workflows/foo.yml").with_(arg_1="foo", arg__2="bar").with_(
+            (("arg_3", "baz"),)
+        )
 
     @job
     def j2():
-        uses("foo", arg_1="foo", arg_2="bar")
+        uses("./.github/workflows/foo.yml", arg_1="foo", arg_2="bar")
 
     @job
     def j3():
-        uses("foo").secrets("inherit")
+        uses("foo/bar/.github/workflows/baz.yml@v1").secrets("inherit")
 
     @job
     def j4():
-        uses("bar").secrets(a=secrets.baz, b=secrets.bazz)
+        uses("foo/bar/.github/workflows/baz.yml@v2").secrets(
+            a=secrets.baz, b=secrets.bazz
+        )
 
 
 @expect(

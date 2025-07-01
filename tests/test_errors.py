@@ -336,13 +336,13 @@ def test_wrong_calls(error):
     def j1():
         run("echo hello")
         error("job `j1` specifies both `uses` and steps")
-        uses("foo")
+        uses("./.github/workflows/foo.yml")
 
     @job
     def j2():
-        uses("foo")
+        uses("./.github/workflows/foo.yml")
         error("job `j2` has already specified `uses`")
-        uses("bar")
+        uses("./.github/workflows/bar.yml")
         error("job `j2` adds steps when `uses` is already set (by `call`)")
         run("echo hello")
         run("echo world")
@@ -354,7 +354,14 @@ def test_wrong_calls(error):
     @job
     def j3():
         error('job `j3` specifies both `"inherit"` and named secrets')
-        uses("foo").secrets("inherit", a=secrets.foo)
+        uses("./.github/workflows/foo.yml").secrets("inherit", a=secrets.foo)
+
+    @job
+    def j4():
+        error(
+            "invalid action source `foo`, must be in the form `owner/repo[/path]@ref` or `./some/path`"
+        )
+        uses("foo")
 
 
 def test_on_must_be_set(error):
