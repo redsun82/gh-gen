@@ -4,7 +4,7 @@ import sys
 import pytest
 
 from src.ghgen.ctx import workflow, GenerationError
-from src.ghgen import generate_workflow
+from src.ghgen.commands.generate import generate_workflow
 import pathlib
 import inspect
 import dis
