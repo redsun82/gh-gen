@@ -9,15 +9,11 @@ import subprocess
 from .ctx import WorkflowInfo, GenerationError
 from .commands import commands
 from .commands.generate import run as generate
-from .commands.utils import relativized_path
+from .commands.utils import relativized_path, project_dir
 
 
-@functools.cache
 def discover_workflows_dir() -> pathlib.Path:
-    path = subprocess.check_output(
-        ["git", "rev-parse", "--show-toplevel"], text=True
-    ).strip()
-    return pathlib.Path(path, ".github", "workflows")
+    return project_dir() / ".github" / "workflows"
 
 
 def options(args: typing.Sequence[str] = None):
