@@ -1,3 +1,3 @@
-from . import generate
+from . import generate, add
 
-commands = [generate]
+commands = [generate, add]

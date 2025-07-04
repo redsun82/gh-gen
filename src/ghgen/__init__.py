@@ -43,9 +43,10 @@ def options(args: typing.Sequence[str] = None):
     p.set_defaults(command=generate, inputs=[])
     subcommands = p.add_subparsers()
     for command in commands:
+        _, _, name = command.__name__.rpartition(".")
         subparser = subcommands.add_parser(
-            command.__name__,
-            aliases=getattr(command, "aliases", None),
+            name,
+            aliases=getattr(command, "aliases", ()),
             help=command.help,
         )
         common_opts(subparser)

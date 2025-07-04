@@ -8,7 +8,7 @@ import difflib
 from ruamel.yaml import CommentedMap
 
 from ..ctx import WorkflowInfo, GenerationError
-from .utils import DiffError, YAML
+from .utils import DiffError, yaml
 
 aliases = ["g", "gen"]
 help = "generate worklows"
