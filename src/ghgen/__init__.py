@@ -61,12 +61,10 @@ def options(args: typing.Sequence[str] = None):
     return ret
 
 
-def main(args: typing.Sequence[str] = None) -> int:
-    opts = options(args)
-    handler = colorlog.StreamHandler()
-    handler.setFormatter(
-        colorlog.ColoredFormatter(
-            "{log_color}{levelname: <8}{reset} {message_log_color}{message}",
+class LogFormatter(colorlog.ColoredFormatter):
+    def __init__(self):
+        super().__init__(
+            "{log_color}{levelname}{reset}{message_log_color}: {message}",
             secondary_log_colors={
                 "message": {
                     "DEBUG": "white",
@@ -77,9 +75,22 @@ def main(args: typing.Sequence[str] = None) -> int:
             },
             style="{",
         )
-    )
+
+    def format(self, record):
+        if record.levelno == logging.INFO:
+            return record.getMessage()
+        return super().format(record)
+
+
+def main(args: typing.Sequence[str] = None) -> int:
+    opts = options(args)
+    handler = colorlog.StreamHandler()
+    handler.setFormatter(LogFormatter())
     logging.basicConfig(
         level=logging.INFO if not opts.verbose else logging.DEBUG, handlers=[handler]
     )
     logging.debug(opts.__dict__)
-    return opts.command(opts)
+    try:
+        return opts.command(opts)
+    except Exception as e:
+        logging.exception(e, exc_info=opts.verbose)
