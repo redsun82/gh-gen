@@ -1,4 +1,4 @@
 from . import generate
-from .lock import add, update
+from .lock import add, update, remove
 
-commands = [generate, add, update]
+commands = [generate, add, update, remove]
