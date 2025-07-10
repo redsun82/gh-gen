@@ -31,7 +31,7 @@ def checkout(*, repository: str | None = None, ref: str | None = None, token: st
 def pre_commit(*, extra_args: str | None = None):
     return uses("pre-commit/action@2c7b3805fd2a0fd8c1884dcaebf91fc102a13ecd").with_((
         ("extra_args", extra_args),
-    )).name("Pre-commit Check").comment(uses="v3.0.1")
+    )).name("Check").comment(uses="v3.0.1")
 
 def setup_uv(*, version: str | None = None, python_version: str | None = None, activate_environment: str | None = None, working_directory: str | None = None, checksum: str | None = None, server_url: str | None = None, github_token: str | None = None, enable_cache: str | None = None, cache_dependency_glob: str | None = None, cache_suffix: str | None = None, cache_local_path: str | None = None, prune_cache: str | None = None, ignore_nothing_to_cache: str | None = None, ignore_empty_workdir: str | None = None, tool_dir: str | None = None, tool_bin_dir: str | None = None, manifest_file: str | None = None):
     return uses("astral-sh/setup-uv@bd01e18f51369d5a26f1651c3cb451d3417e3bba").with_((

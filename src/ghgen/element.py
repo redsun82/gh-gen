@@ -73,7 +73,9 @@ def asobj(o: typing.Any):
 
 
 class ConfigElement(Element):
-    yaml: CommentedMap = dataclasses.field(default_factory=CommentedMap, repr=False)
+    yaml: CommentedMap = dataclasses.field(
+        default_factory=CommentedMap, repr=False, compare=False
+    )
 
     @classmethod
     def fromdict(cls, d: dict[str, typing.Any]) -> typing.Self:

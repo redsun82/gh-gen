@@ -1,4 +1,5 @@
 import dataclasses
+import logging
 import re
 import contextlib
 import subprocess
@@ -47,6 +48,10 @@ class Action(ConfigElement):
 
     @property
     def unversioned_spec(self) -> str:
+        return self.spec
+
+    @property
+    def display_spec(self):
         return self.spec
 
     @property
@@ -127,6 +132,13 @@ class RemoteAction(Action):
     @property
     def unversioned_spec(self) -> str:
         return str(pathlib.PurePosixPath(self.owner, self.repo, self.path))
+
+    @property
+    def display_spec(self) -> str:
+        if self.resolved_ref != self.sha:
+            return f"{self.resolved_spec} ({self.resolved_ref})"
+        else:
+            return self.resolved_spec
 
     @property
     def comment(self):
@@ -218,25 +230,16 @@ def sync_lock_data(
     lock_file = project_dir() / "gh-gen.lock"
     lock_data = load(LockData, lock_file)
     actions = {a.name: a for a in lock_data.actions}
-    for name in actions:
+    for name in list(actions):
         if name not in uses:
             del actions[name]
     match actions_to_update:
         case list():
-
-            def to_update(name):
-                return name in actions_to_update
-
+            to_update = lambda n: n in actions_to_update
         case "all":
-
-            def to_update(name):
-                return True
-
+            to_update = lambda n: True
         case "changed":
-
-            def to_update(name):
-                return name not in actions or actions[name].spec != spec
-
+            to_update = lambda n: n not in actions or actions[n].spec != spec
         case _:
             assert False, "actions_to_update must be a list, 'all', or 'changed'"
     for name, u in uses.items():
@@ -244,16 +247,31 @@ def sync_lock_data(
             case UsesClause(uses=spec, title=title):
                 pass
             case str() as spec:
-                title = inflection.titleize(name)
+                title = inflection.titleize(name).lower().capitalize()
             case _:
-                assert False, "malformed lock file"
+                raise TypeError("malformed lock file")
         if not to_update(name):
             continue
+        prev = actions.get(name)
         actions[name] = Action.from_spec(f"{name}={spec}")
         actions[name].title = title
         # TODO: async
         actions[name].fetch()
-    lock_data.actions[:] = list(actions.values())
+        message = [f"{name}: "]
+        if prev is None:
+            message[0] += f"{actions[name].display_spec}"
+        elif prev == actions[name]:
+            message[0] += "✅"
+        elif prev.display_spec != actions[name].display_spec:
+            message[0] += f"{prev.display_spec}"
+            message.append(f"    → {actions[name].display_spec}")
+        elif prev.inputs != actions[name].inputs:
+            message[0] += f"inputs updated"
+        elif prev.title != actions[name].title:
+            message[0] += f"title updated"
+        for m in message:
+            logging.info(m)
+    lock_data.actions[:] = sorted(actions.values(), key=lambda a: a.name)
     dump(lock_data, lock_file)
     generated = args.includes[0] / "actions.py"
     renderer = pystache.Renderer(search_dirs=[pathlib.Path(__file__).parent])
