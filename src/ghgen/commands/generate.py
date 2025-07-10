@@ -5,10 +5,10 @@ import sys
 import pathlib
 import difflib
 
-from ruamel.yaml import YAML, CommentedMap
+from ruamel.yaml import CommentedMap
 
 from ..ctx import WorkflowInfo, GenerationError
-from .utils import DiffError
+from .utils import DiffError, yaml
 
 aliases = ["g", "gen"]
 help = "generate worklows"
@@ -22,10 +22,6 @@ def add_arguments(parser: argparse.ArgumentParser):
         nargs="*",
         help="Input files or directories containing workflow definitions",
     )
-
-
-yaml = YAML()
-yaml.default_flow_style = False
 
 
 def generate_workflow(

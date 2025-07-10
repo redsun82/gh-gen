@@ -1,0 +1,111 @@
+actions:
+- name: checkout
+  title: Checkout
+  inputs:
+  - name: repository
+    id: repository
+  - name: ref
+    id: ref
+  - name: token
+    id: token
+  - name: ssh_key
+    id: ssh-key
+  - name: ssh_known_hosts
+    id: ssh-known-hosts
+  - name: ssh_strict
+    id: ssh-strict
+  - name: ssh_user
+    id: ssh-user
+  - name: persist_credentials
+    id: persist-credentials
+  - name: path
+    id: path
+  - name: clean
+    id: clean
+  - name: filter
+    id: filter
+  - name: sparse_checkout
+    id: sparse-checkout
+  - name: sparse_checkout_cone_mode
+    id: sparse-checkout-cone-mode
+  - name: fetch_depth
+    id: fetch-depth
+  - name: fetch_tags
+    id: fetch-tags
+  - name: show_progress
+    id: show-progress
+  - name: lfs
+    id: lfs
+  - name: submodules
+    id: submodules
+  - name: set_safe_directory
+    id: set-safe-directory
+  - name: github_server_url
+    id: github-server-url
+    required: false
+  owner: actions
+  repo: checkout
+  path: ''
+  resolved-ref: v4.2.2
+  sha: 11bd71901bbe5b1630ceea73d27597364c9af683
+- name: pre_commit
+  title: Pre-commit Check
+  inputs:
+  - name: extra_args
+    id: extra_args
+    required: false
+  owner: pre-commit
+  repo: action
+  path: ''
+  resolved-ref: v3.0.1
+  sha: 2c7b3805fd2a0fd8c1884dcaebf91fc102a13ecd
+- name: setup_uv
+  title: Setup uv
+  inputs:
+  - name: version
+    id: version
+  - name: python_version
+    id: python-version
+    required: false
+  - name: activate_environment
+    id: activate-environment
+  - name: working_directory
+    id: working-directory
+  - name: checksum
+    id: checksum
+    required: false
+  - name: server_url
+    id: server-url
+    required: false
+  - name: github_token
+    id: github-token
+    required: false
+  - name: enable_cache
+    id: enable-cache
+  - name: cache_dependency_glob
+    id: cache-dependency-glob
+  - name: cache_suffix
+    id: cache-suffix
+    required: false
+  - name: cache_local_path
+    id: cache-local-path
+  - name: prune_cache
+    id: prune-cache
+  - name: ignore_nothing_to_cache
+    id: ignore-nothing-to-cache
+  - name: ignore_empty_workdir
+    id: ignore-empty-workdir
+  - name: tool_dir
+    id: tool-dir
+    required: false
+  - name: tool_bin_dir
+    id: tool-bin-dir
+    required: false
+  - name: manifest_file
+    id: manifest-file
+    required: false
+  owner: astral-sh
+  repo: setup-uv
+  path: ''
+  resolved-ref: v6.3.1
+  sha: bd01e18f51369d5a26f1651c3cb451d3417e3bba

@@ -1296,3 +1296,42 @@ def test_environment():
     def j2():
         environment(name="staging", url="https://example.com")
         run("")
+
+
+@expect(
+    """
+# generated from test_workflow.py::test_step_comments
+on:
+  workflow_dispatch: {}
+jobs:
+  test_step_comments:
+    runs-on: ubuntu-latest
+    steps:
+    - name: foo  # name comment
+      if: true
+      run: |  # run comment
+        echo 1
+        echo 2
+    - name: Action
+      uses: ./an/action  # uses comment
+      with: # with comment
+        foo: bar
+        baz: qux
+"""
+)
+def test_step_comments():
+    on.workflow_dispatch()
+
+    step("foo").run(
+        """
+        echo 1
+        echo 2
+    """
+    ).if_(True).comment(
+        name="name comment",
+        run="run comment",
+    )
+    uses("./an/action", foo="bar", baz="qux").comment(
+        uses="uses comment",
+        with_="with comment",
+    )

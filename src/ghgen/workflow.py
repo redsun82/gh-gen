@@ -369,17 +369,29 @@ class Step(Element):
     # extensions
     outputs: list[str]
     needs: list[str]
+    comments: dict[str, str]
 
     def asdict(self) -> typing.Any:
         ret = super().asdict()
         ret.pop("outputs", None)
         needs = ret.pop("needs", None)
+        comments = ret.pop("comments", {})
         if isinstance(self.if_, Expr):
             ret["if"] = self.if_._formula
         ret = _flow_text(ret, "run")
-        if needs:
+        if not ret.get("with"):
+            ret.pop("with", None)
+        if needs or comments:
             ret = CommentedMap(ret)
-            ret.yaml_set_start_comment(f"needs {", ".join(needs)}", indent=4)
+            if needs:
+                ret.yaml_set_start_comment(f"needs {", ".join(needs)}", indent=4)
+            for key, comment in comments.items():
+                key = self._key(key)
+                match ret.get(key):
+                    case LiteralScalarString() as s:
+                        s.comment = f"  # {comment}"
+                    case _:
+                        ret.yaml_add_eol_comment(comment, key)
         return ret
 
 

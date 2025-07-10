@@ -1293,6 +1293,15 @@ class _StepUpdater(ProxyExpr, _IdElementUpdater[Step]):
             jobs = needs(*jobs)
         return self._update("needs", _value, jobs)
 
+    def comment(self, **kwargs: str):
+        ret = self._update("comments", _map, ((), kwargs))
+        missing = [k for k in kwargs if getattr(ret._element, k, None) is None]
+        if missing:
+            _ctx.error(
+                f"step is missing fields targeted by comments: {', '.join(missing)}"
+            )
+        return ret
+
 
 step = _StepUpdater(_get_job, ("steps", "*"))
 run = step.run

@@ -1,5 +1,8 @@
 import dataclasses
 import typing
+import types
+
+from ruamel.yaml import CommentedMap
 
 from .expr import Expr, instantiate
 
@@ -67,3 +70,57 @@ def asobj(o: typing.Any):
             return [asobj(x) for x in l]
         case _:
             return o
+
+
+class ConfigElement(Element):
+    yaml: CommentedMap = dataclasses.field(default_factory=CommentedMap, repr=False)
+
+    @classmethod
+    def fromdict(cls, d: dict[str, typing.Any]) -> typing.Self:
+        return fromobj(d, cls)
+
+    def asdict(self) -> typing.Any:
+        ret = super().asdict()
+        ret.pop("yaml", None)
+        return ret
+
+    def reload(self):
+        self.__dict__.update(self.fromdict(self.yaml).__dict__)
+
+
+def fromobj[T](x: typing.Any, t: type[T]) -> T:
+    if typing.get_origin(t) is list:
+        if not isinstance(x, list):
+            raise ValueError(f"expected list, got {type(x)}")
+        item_type = typing.get_args(t)[0]
+        return [fromobj(v, item_type) for v in x]
+    if typing.get_origin(t) is dict:
+        if not isinstance(x, dict):
+            raise ValueError(f"expected dict, got {type(x)}")
+        key_type, value_type = typing.get_args(t)
+        return {key_type(k): fromobj(v, value_type) for k, v in x.items()}
+    if typing.get_origin(t) in (types.UnionType, typing.Union):
+        for arg in typing.get_args(t):
+            try:
+                return fromobj(x, arg)
+            except ValueError:
+                continue
+        raise ValueError(f"could not convert {x} to {t}")
+    if t is types.NoneType or t is None:
+        if x is not None:
+            raise ValueError(f"expected None, got {type(x)}")
+        return None
+    if issubclass(t, ConfigElement):
+        if not isinstance(x, dict):
+            raise ValueError(f"expected dict, got {type(x)}")
+        if t.__subclasses__():
+            return fromobj(x, typing.Union[*t.__subclasses__()])
+        fields = dataclasses.fields(t)
+        args = {"yaml": x}
+        for k, v in x.items():
+            f = next((f for f in fields if t._key(f.name) == k), None)
+            if f is None:
+                raise ValueError(f"unknown configuration field {k} in {t.__name__}")
+            args[f.name] = fromobj(v, f.type)
+        return t(**args)
+    return t(x)

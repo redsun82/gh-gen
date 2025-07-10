@@ -498,3 +498,11 @@ def test_wrong_env_usage(error):
         )
         step.uses(env.USES)
         step.run(env.CODE)
+
+
+@expect_errors
+def test_wrong_comments(error):
+    on.workflow_dispatch()
+
+    error("step is missing fields targeted by comments: name, asdf")
+    run("").comment(name="not there", run="ok", asdf="not there")

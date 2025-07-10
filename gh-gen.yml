@@ -1,0 +1,8 @@
+uses:
+  checkout: actions/checkout
+  pre_commit:
+    uses: pre-commit/action
+    title: Pre-commit Check
+  setup_uv:
+    uses: astral-sh/setup-uv
+    title: Setup uv

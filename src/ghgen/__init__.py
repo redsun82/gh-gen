@@ -3,25 +3,21 @@ import logging
 import typing
 import pathlib
 import colorlog
-import functools
-import subprocess
 
+from .config import Config
 from .ctx import WorkflowInfo, GenerationError
 from .commands import commands
 from .commands.generate import run as generate
-from .commands.utils import relativized_path
+from .commands.utils import relativized_path, project_dir, load, config_file
 
 
-@functools.cache
 def discover_workflows_dir() -> pathlib.Path:
-    path = subprocess.check_output(
-        ["git", "rev-parse", "--show-toplevel"], text=True
-    ).strip()
-    return pathlib.Path(path, ".github", "workflows")
+    return project_dir() / ".github" / "workflows"
 
 
 def options(args: typing.Sequence[str] = None):
     p = argparse.ArgumentParser(description="Generate Github Actions workflows")
+    config = load(Config, config_file())
 
     def common_opts(parser):
         parser.add_argument(
@@ -29,6 +25,8 @@ def options(args: typing.Sequence[str] = None):
             "-D",
             type=relativized_path,
             metavar="DIR",
+            default=config.output_directory
+            and relativized_path(config.output_directory),
             help="Where output files should be written (`.github/workflows` by default)",
         )
         parser.add_argument(
@@ -39,17 +37,19 @@ def options(args: typing.Sequence[str] = None):
             action="append",
             dest="includes",
             help="Add DIR to the system include paths. Can be repeated. If none are provided `.github/workflows` is used. Includes are also used as default inputs.",
+            default=config.includes or [],
         )
         parser.add_argument("--verbose", "-v", action="store_true")
         parser.add_argument("--check", "-C", action="store_true")
 
     common_opts(p)
-    p.set_defaults(command=generate, inputs=[])
+    p.set_defaults(command=generate, inputs=[], config=config)
     subcommands = p.add_subparsers()
     for command in commands:
+        _, _, name = command.__name__.rpartition(".")
         subparser = subcommands.add_parser(
-            command.__name__,
-            aliases=getattr(command, "aliases", None),
+            name,
+            aliases=getattr(command, "aliases", ()),
             help=command.help,
         )
         common_opts(subparser)
