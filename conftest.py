@@ -1,9 +1,12 @@
 import dataclasses
+import difflib
+import os
 import sys
+import textwrap
 
 import pytest
 
-from src.ghgen.ctx import workflow, GenerationError
+from src.ghgen.ctx import workflow, GenerationError, _get_var_name
 from src.ghgen.commands.generate import generate_workflow
 import pathlib
 import inspect
@@ -146,6 +149,75 @@ def expect_errors(func):
             _ = wf.worfklow
 
     return wrapper
+
+
+class TestRepo:
+    class File:
+        def __init__(
+            self,
+            config: pytest.Config,
+            path: str | os.PathLike,
+            contents: str | None = None,
+        ):
+            self.config = config
+            path = pathlib.Path(path)
+            assert not path.is_absolute()
+            self.path = path
+            contents = contents and textwrap.dedent(contents)
+            self.contents = contents or ""
+            if contents is not None:
+                path.write_text(contents)
+
+        def expect_diff(self, diff: str = ""):
+            def split(s):
+                return s.splitlines(keepends=True)
+
+            up = inspect.currentframe().f_back
+            name = next(var for var, value in up.f_locals.items() if value is self)
+            call = _Call.get(f"{name}.expect_diff")
+            new_contents = self.path.read_text()
+            actual_diff = difflib.unified_diff(
+                split(self.contents),
+                split(new_contents),
+            )
+            next(actual_diff)  # skip ---
+            next(actual_diff)  # skip +++
+            actual_diff = list(actual_diff)
+            expected_diff = split(diff.lstrip())
+            if not self.config.getoption("--learn"):
+                assert (
+                    actual_diff == expected_diff
+                ), f"diff for {self.path} does not match expected one"
+            elif actual_diff != expected_diff:
+                self.config.stash[_learn].append((call, "".join(actual_diff).rstrip()))
+
+    def __init__(self, config: pytest.Config, path: pathlib.Path):
+        self.config = config
+        self.path = path
+        self.files = {}
+
+    def __enter__(self):
+        self._cwd = pathlib.Path.cwd()
+        self.path.mkdir()
+        subprocess.run(["git", "init"], cwd=self.path, check=True)
+        os.chdir(self.path)
+        return self
+
+    def __exit__(self, *args):
+        os.chdir(self._cwd)
+
+    def file(self, path: str | os.PathLike, contents: str | None = None) -> File:
+        return self.File(self.config, path, contents)
+
+
+@pytest.fixture
+def repo(request: pytest.FixtureRequest, tmp_path: pathlib.Path):
+    """
+    Fixture to create a temporary git repository for testing.
+    """
+    repo_path = tmp_path / request.node.name
+    with TestRepo(request.config, repo_path) as repo:
+        yield repo
 
 
 def pytest_unconfigure(config):
