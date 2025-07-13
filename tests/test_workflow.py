@@ -5,29 +5,29 @@ from src.ghgen.ctx import *
 
 
 @expect(
-    """
-# generated from test_workflow.py::test_basic
-name: My workflow
-on:
-  pull_request:
-    branches:
-    - main
-    paths:
-    - foo/**
-    - bar/**
-    - '!baz/**'
-  push:
-    tags:
-    - main
-    - '!v1.0.0'
-  workflow_dispatch: {}
-jobs:
-  test_basic:
+    """\
+    # generated from test_workflow.py::test_basic
     name: My workflow
-    runs-on: ubuntu-latest
-    steps:
-    - run: ''
-"""
+    on:
+      pull_request:
+        branches:
+        - main
+        paths:
+        - foo/**
+        - bar/**
+        - '!baz/**'
+      push:
+        tags:
+        - main
+        - '!v1.0.0'
+      workflow_dispatch: {}
+    jobs:
+      test_basic:
+        name: My workflow
+        runs-on: ubuntu-latest
+        steps:
+        - run: ''
+    """
 )
 def test_basic():
     name("My workflow")
@@ -39,28 +39,28 @@ def test_basic():
 
 
 @expect(
+    """\
+    # generated from test_workflow.py::test_pull_request
+    on:
+      pull_request:
+        types:
+        - opened
+        - reopened
+        branches:
+        - main
+        - dev/*
+        ignore-branches:
+        - dev/ignore
+        paths:
+        - foo/**
+        ignore-paths:
+        - foo/bar/**
+    jobs:
+      test_pull_request:
+        runs-on: ubuntu-latest
+        steps:
+        - run: ''
     """
-# generated from test_workflow.py::test_pull_request
-on:
-  pull_request:
-    types:
-    - opened
-    - reopened
-    branches:
-    - main
-    - dev/*
-    ignore-branches:
-    - dev/ignore
-    paths:
-    - foo/**
-    ignore-paths:
-    - foo/bar/**
-jobs:
-  test_pull_request:
-    runs-on: ubuntu-latest
-    steps:
-    - run: ''
-"""
 )
 def test_pull_request():
     on.pull_request(
@@ -74,20 +74,20 @@ def test_pull_request():
 
 
 @expect(
+    """\
+    # generated from test_workflow.py::test_merge
+    on:
+      pull_request:
+        branches:
+        - main
+        paths:
+        - foo/**
+    jobs:
+      test_merge:
+        runs-on: ubuntu-latest
+        steps:
+        - run: ''
     """
-# generated from test_workflow.py::test_merge
-on:
-  pull_request:
-    branches:
-    - main
-    paths:
-    - foo/**
-jobs:
-  test_merge:
-    runs-on: ubuntu-latest
-    steps:
-    - run: ''
-"""
 )
 def test_merge():
     on.pull_request(branches=["main"])
@@ -96,16 +96,16 @@ def test_merge():
 
 
 @expect(
+    """\
+    # generated from test_workflow.py::test_job
+    on:
+      workflow_dispatch: {}
+    jobs:
+      my_job:
+        name: My job
+        env:
+          FOO: bar
     """
-# generated from test_workflow.py::test_job
-on:
-  workflow_dispatch: {}
-jobs:
-  my_job:
-    name: My job
-    env:
-      FOO: bar
-"""
 )
 def test_job():
     on.workflow_dispatch()
@@ -117,20 +117,20 @@ def test_job():
 
 
 @expect(
+    """\
+    # generated from test_workflow.py::test_jobs
+    on:
+      workflow_dispatch: {}
+    jobs:
+      job1:
+        name: First job
+        env:
+          FOO: bar
+      job2:
+        name: Second job
+        env:
+          BAZ: bazz
     """
-# generated from test_workflow.py::test_jobs
-on:
-  workflow_dispatch: {}
-jobs:
-  job1:
-    name: First job
-    env:
-      FOO: bar
-  job2:
-    name: Second job
-    env:
-      BAZ: bazz
-"""
 )
 def test_jobs():
     on.workflow_dispatch()
@@ -147,14 +147,14 @@ def test_jobs():
 
 
 @expect(
+    """\
+    # generated from test_workflow.py::test_job_runs_on
+    on:
+      workflow_dispatch: {}
+    jobs:
+      my_job:
+        runs-on: windows-latest
     """
-# generated from test_workflow.py::test_job_runs_on
-on:
-  workflow_dispatch: {}
-jobs:
-  my_job:
-    runs-on: windows-latest
-"""
 )
 def test_job_runs_on():
     on.workflow_dispatch()
@@ -165,19 +165,19 @@ def test_job_runs_on():
 
 
 @expect(
+    """\
+    # generated from test_workflow.py::test_multiline_run_code_dedented
+    on:
+      workflow_dispatch: {}
+    jobs:
+      test_multiline_run_code_dedented:
+        runs-on: ubuntu-latest
+        steps:
+        - run: |
+            echo one
+            echo two
+            echo three
     """
-# generated from test_workflow.py::test_multiline_run_code_dedented
-on:
-  workflow_dispatch: {}
-jobs:
-  test_multiline_run_code_dedented:
-    runs-on: ubuntu-latest
-    steps:
-    - run: |
-        echo one
-        echo two
-        echo three
-"""
 )
 def test_multiline_run_code_dedented():
     on.workflow_dispatch()
@@ -189,20 +189,20 @@ def test_multiline_run_code_dedented():
 
 
 @expect(
+    """\
+    # generated from test_workflow.py::test_strategy_with_cross_matrix
+    on:
+      workflow_dispatch: {}
+    jobs:
+      a_job:
+        runs-on: ubuntu-latest
+        strategy:
+          matrix:
+            x: [1, 2, 3]
+            y: [a, b, c]
+        steps:
+        - run: ${{ matrix.x }}, ${{ matrix.y }}
     """
-# generated from test_workflow.py::test_strategy_with_cross_matrix
-on:
-  workflow_dispatch: {}
-jobs:
-  a_job:
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        x: [1, 2, 3]
-        y: [a, b, c]
-    steps:
-    - run: ${{ matrix.x }}, ${{ matrix.y }}
-"""
 )
 def test_strategy_with_cross_matrix():
     on.workflow_dispatch()
@@ -214,24 +214,24 @@ def test_strategy_with_cross_matrix():
 
 
 @expect(
+    """\
+    # generated from test_workflow.py::test_strategy_with_include_exclude_matrix
+    on:
+      workflow_dispatch: {}
+    jobs:
+      a_job:
+        runs-on: ubuntu-latest
+        strategy:
+          matrix:
+            x: [1, 2, 3]
+            y: [a, b, c]
+            include:
+            - {x: 100, y: z, z: 42}
+            exclude:
+            - {x: 1, y: a}
+        steps:
+        - run: ${{ matrix.x }}, ${{ matrix.y }}, ${{ matrix.z }}
     """
-# generated from test_workflow.py::test_strategy_with_include_exclude_matrix
-on:
-  workflow_dispatch: {}
-jobs:
-  a_job:
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        x: [1, 2, 3]
-        y: [a, b, c]
-        include:
-        - {x: 100, y: z, z: 42}
-        exclude:
-        - {x: 1, y: a}
-    steps:
-    - run: ${{ matrix.x }}, ${{ matrix.y }}, ${{ matrix.z }}
-"""
 )
 def test_strategy_with_include_exclude_matrix():
     on.workflow_dispatch()
@@ -248,22 +248,22 @@ def test_strategy_with_include_exclude_matrix():
 
 
 @expect(
+    """\
+    # generated from test_workflow.py::test_strategy_with_fail_fast_and_max_parallel
+    on:
+      workflow_dispatch: {}
+    jobs:
+      a_job:
+        runs-on: ubuntu-latest
+        strategy:
+          matrix:
+            x: [1, 2, 3]
+            y: [a, b, c]
+          fail-fast: true
+          max-parallel: 5
+        steps:
+        - run: ${{ matrix.x }}, ${{ matrix.y }}
     """
-# generated from test_workflow.py::test_strategy_with_fail_fast_and_max_parallel
-on:
-  workflow_dispatch: {}
-jobs:
-  a_job:
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        x: [1, 2, 3]
-        y: [a, b, c]
-      fail-fast: true
-      max-parallel: 5
-    steps:
-    - run: ${{ matrix.x }}, ${{ matrix.y }}
-"""
 )
 def test_strategy_with_fail_fast_and_max_parallel():
     on.workflow_dispatch()
@@ -275,24 +275,24 @@ def test_strategy_with_fail_fast_and_max_parallel():
 
 
 @expect(
+    """\
+    # generated from test_workflow.py::test_strategy_in_workflow
+    on:
+      workflow_dispatch: {}
+    jobs:
+      test_strategy_in_workflow:
+        runs-on: ubuntu-latest
+        strategy:
+          matrix:
+            x: [1, 2, 3]
+            y: [a, b]
+            include:
+            - {z: 42}
+            exclude:
+            - {x: 2, y: b}
+        steps:
+        - run: ${{ matrix.x }}, ${{ matrix.y }}, ${{ matrix.z }}
     """
-# generated from test_workflow.py::test_strategy_in_workflow
-on:
-  workflow_dispatch: {}
-jobs:
-  test_strategy_in_workflow:
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        x: [1, 2, 3]
-        y: [a, b]
-        include:
-        - {z: 42}
-        exclude:
-        - {x: 2, y: b}
-    steps:
-    - run: ${{ matrix.x }}, ${{ matrix.y }}, ${{ matrix.z }}
-"""
 )
 def test_strategy_in_workflow():
     on.workflow_dispatch()
@@ -301,25 +301,25 @@ def test_strategy_in_workflow():
 
 
 @expect(
+    """\
+    # generated from test_workflow.py::test_matrix_from_input
+    on:
+      workflow_dispatch:
+        inputs:
+          i:
+            required: false
+            type: string
+    jobs:
+      test_matrix_from_input:
+        runs-on: ubuntu-latest
+        strategy:
+          matrix: ${{ fromJson(inputs.i) }}
+        steps:
+        - run: ${{ matrix.foo }}, ${{ matrix.bar }}
+        - name: Fail
+          if: contains(inputs.i, 'failed')
+          run: ''
     """
-# generated from test_workflow.py::test_matrix_from_input
-on:
-  workflow_dispatch:
-    inputs:
-      i:
-        required: false
-        type: string
-jobs:
-  test_matrix_from_input:
-    runs-on: ubuntu-latest
-    strategy:
-      matrix: ${{ fromJson(inputs.i) }}
-    steps:
-    - run: ${{ matrix.foo }}, ${{ matrix.bar }}
-    - name: Fail
-      if: contains(inputs.i, 'failed')
-      run: ''
-"""
 )
 def test_matrix_from_input():
     i = on.workflow_dispatch.input()
@@ -331,18 +331,18 @@ def test_matrix_from_input():
 
 
 @expect(
-    """
-# generated from test_workflow.py::test_runs_on_in_workflow
-on:
-  workflow_dispatch: {}
-env:
-  WORKFLOW_ENV: 1
-jobs:
-  test_runs_on_in_workflow:
-    runs-on: macos-latest
+    """\
+    # generated from test_workflow.py::test_runs_on_in_workflow
+    on:
+      workflow_dispatch: {}
     env:
-      JOB_ENV: 2
-"""
+      WORKFLOW_ENV: 1
+    jobs:
+      test_runs_on_in_workflow:
+        runs-on: macos-latest
+        env:
+          JOB_ENV: 2
+    """
 )
 def test_runs_on_in_workflow():
     on.workflow_dispatch()
@@ -352,16 +352,16 @@ def test_runs_on_in_workflow():
 
 
 @expect(
-    """
-# generated from test_workflow.py::test_runs_on_in_worfklow_with_name
-name: Foo bar
-on:
-  workflow_dispatch: {}
-jobs:
-  test_runs_on_in_worfklow_with_name:
+    """\
+    # generated from test_workflow.py::test_runs_on_in_worfklow_with_name
     name: Foo bar
-    runs-on: macos-latest
-"""
+    on:
+      workflow_dispatch: {}
+    jobs:
+      test_runs_on_in_worfklow_with_name:
+        name: Foo bar
+        runs-on: macos-latest
+    """
 )
 def test_runs_on_in_worfklow_with_name():
     name("Foo bar")
@@ -370,42 +370,42 @@ def test_runs_on_in_worfklow_with_name():
 
 
 @expect(
+    """\
+    # generated from test_workflow.py::test_steps
+    on:
+      workflow_dispatch: {}
+    jobs:
+      my_job:
+        runs-on: ubuntu-latest
+        steps:
+        - name: salutations
+          run: echo hello
+        - run: echo $WHO
+          env:
+            WHO: world
+        - name: catastrophe
+          if: failure()
+          run: echo oh no
+        - name: Checkout
+          uses: actions/checkout@v4
+          with:
+            ref: dev
+        - name: My action
+          uses: ./my_action
+          with:
+            arg-1: foo
+            arg_2: bar
+            arg_3: baz
+        - name: other
+          uses: ./my_other_action
+          with:
+            arg-1: foo
+            arg_2: bar
+        - continue-on-error: true
+          run: one
+        - continue-on-error: value
+          run: two
     """
-# generated from test_workflow.py::test_steps
-on:
-  workflow_dispatch: {}
-jobs:
-  my_job:
-    runs-on: ubuntu-latest
-    steps:
-    - name: salutations
-      run: echo hello
-    - run: echo $WHO
-      env:
-        WHO: world
-    - name: catastrophe
-      if: failure()
-      run: echo oh no
-    - name: Checkout
-      uses: actions/checkout@v4
-      with:
-        ref: dev
-    - name: My action
-      uses: ./my_action
-      with:
-        arg-1: foo
-        arg_2: bar
-        arg_3: baz
-    - name: other
-      uses: ./my_other_action
-      with:
-        arg-1: foo
-        arg_2: bar
-    - continue-on-error: true
-      run: one
-    - continue-on-error: value
-      run: two
-"""
 )
 def test_steps():
     on.workflow_dispatch()
@@ -423,40 +423,40 @@ def test_steps():
 
 
 @expect(
+    """\
+    # generated from test_workflow.py::test_workflow_dispatch_inputs
+    on:
+      workflow_dispatch:
+        inputs:
+          foo:
+            description: a foo
+            required: true
+            type: string
+          bar:
+            description: a bar
+            required: false
+            type: boolean
+          baz:
+            required: false
+            default: b
+            type: choice
+            options:
+            - a
+            - b
+            - c
+          an-env:
+            required: false
+            type: environment
+    jobs:
+      test_workflow_dispatch_inputs:
+        runs-on: ubuntu-latest
+        steps:
+        - run: |
+            echo ${{ inputs.foo }}
+            echo ${{ inputs.bar }}
+            echo ${{ inputs.baz }}
+            echo ${{ inputs.an-env }}
     """
-# generated from test_workflow.py::test_workflow_dispatch_inputs
-on:
-  workflow_dispatch:
-    inputs:
-      foo:
-        description: a foo
-        required: true
-        type: string
-      bar:
-        description: a bar
-        required: false
-        type: boolean
-      baz:
-        required: false
-        default: b
-        type: choice
-        options:
-        - a
-        - b
-        - c
-      an-env:
-        required: false
-        type: environment
-jobs:
-  test_workflow_dispatch_inputs:
-    runs-on: ubuntu-latest
-    steps:
-    - run: |
-        echo ${{ inputs.foo }}
-        echo ${{ inputs.bar }}
-        echo ${{ inputs.baz }}
-        echo ${{ inputs.an-env }}
-"""
 )
 def test_workflow_dispatch_inputs():
     foo = on.workflow_dispatch.input.description("a foo").required()
@@ -472,41 +472,41 @@ def test_workflow_dispatch_inputs():
 
 
 @expect(
+    """\
+    # generated from test_workflow.py::test_workflow_call
+    on:
+      workflow_call:
+        inputs:
+          foo:
+            required: true
+            type: string
+          bar:
+            required: false
+            type: boolean
+          baz:
+            required: false
+            default: b
+            type: choice
+            options:
+            - a
+            - b
+            - c
+        secrets:
+          token:
+            required: true
+          auth:
+            description: auth if provided
+            required: false
+    jobs:
+      test_workflow_call:
+        runs-on: ubuntu-latest
+        steps:
+        - if: secrets.token && secrets.auth
+          run: |
+            echo ${{ inputs.foo }}
+            echo ${{ inputs.bar }}
+            echo ${{ inputs.baz }}
     """
-# generated from test_workflow.py::test_workflow_call
-on:
-  workflow_call:
-    inputs:
-      foo:
-        required: true
-        type: string
-      bar:
-        required: false
-        type: boolean
-      baz:
-        required: false
-        default: b
-        type: choice
-        options:
-        - a
-        - b
-        - c
-    secrets:
-      token:
-        required: true
-      auth:
-        description: auth if provided
-        required: false
-jobs:
-  test_workflow_call:
-    runs-on: ubuntu-latest
-    steps:
-    - if: secrets.token && secrets.auth
-      run: |
-        echo ${{ inputs.foo }}
-        echo ${{ inputs.bar }}
-        echo ${{ inputs.baz }}
-"""
 )
 def test_workflow_call():
     token = on.workflow_call.secret(required=True)
@@ -523,46 +523,46 @@ def test_workflow_call():
 
 
 @expect(
+    """\
+    # generated from test_workflow.py::test_inputs
+    on:
+      workflow_call:
+        inputs:
+          foo:
+            description: a foo
+            required: true
+            type: string
+          bar:
+            required: false
+            default: 42
+            type: number
+          baz:
+            required: false
+            default: true
+            type: boolean
+      workflow_dispatch:
+        inputs:
+          foo:
+            description: a foo
+            required: true
+            type: string
+          bar:
+            required: false
+            default: 42
+            type: number
+          baz:
+            required: false
+            default: true
+            type: boolean
+    jobs:
+      test_inputs:
+        runs-on: ubuntu-latest
+        steps:
+        - run: |
+            echo ${{ inputs.foo }}
+            echo ${{ inputs.bar }}
+            echo ${{ inputs.baz }}
     """
-# generated from test_workflow.py::test_inputs
-on:
-  workflow_call:
-    inputs:
-      foo:
-        description: a foo
-        required: true
-        type: string
-      bar:
-        required: false
-        default: 42
-        type: number
-      baz:
-        required: false
-        default: true
-        type: boolean
-  workflow_dispatch:
-    inputs:
-      foo:
-        description: a foo
-        required: true
-        type: string
-      bar:
-        required: false
-        default: 42
-        type: number
-      baz:
-        required: false
-        default: true
-        type: boolean
-jobs:
-  test_inputs:
-    runs-on: ubuntu-latest
-    steps:
-    - run: |
-        echo ${{ inputs.foo }}
-        echo ${{ inputs.bar }}
-        echo ${{ inputs.baz }}
-"""
 )
 def test_inputs():
     on.workflow_dispatch().workflow_call()
@@ -577,27 +577,27 @@ def test_inputs():
 
 
 @expect(
+    """\
+    # generated from test_workflow.py::test_input_underscores
+    on:
+      workflow_dispatch:
+        inputs:
+          my-input:
+            required: false
+            type: string
+          my_other_input:
+            required: false
+            type: string
+          yet_another_input:
+            required: false
+            type: string
+    jobs:
+      test_input_underscores:
+        runs-on: ubuntu-latest
+        steps:
+        - run: echo ${{ inputs.my-input }} ${{ inputs.my_other_input }} ${{ inputs.yet_another_input
+            }}
     """
-# generated from test_workflow.py::test_input_underscores
-on:
-  workflow_dispatch:
-    inputs:
-      my-input:
-        required: false
-        type: string
-      my_other_input:
-        required: false
-        type: string
-      yet_another_input:
-        required: false
-        type: string
-jobs:
-  test_input_underscores:
-    runs-on: ubuntu-latest
-    steps:
-    - run: echo ${{ inputs.my-input }} ${{ inputs.my_other_input }} ${{ inputs.yet_another_input
-        }}
-"""
 )
 def test_input_underscores():
     on.workflow_dispatch()
@@ -608,25 +608,25 @@ def test_input_underscores():
 
 
 @expect(
+    """\
+    # generated from test_workflow.py::test_different_inputs
+    on:
+      workflow_call:
+        inputs:
+          a:
+            required: false
+            type: string
+      workflow_dispatch:
+        inputs:
+          b:
+            required: false
+            type: string
+    jobs:
+      test_different_inputs:
+        runs-on: ubuntu-latest
+        steps:
+        - run: echo ${{ inputs.a }} ${{ inputs.b }}
     """
-# generated from test_workflow.py::test_different_inputs
-on:
-  workflow_call:
-    inputs:
-      a:
-        required: false
-        type: string
-  workflow_dispatch:
-    inputs:
-      b:
-        required: false
-        type: string
-jobs:
-  test_different_inputs:
-    runs-on: ubuntu-latest
-    steps:
-    - run: echo ${{ inputs.a }} ${{ inputs.b }}
-"""
 )
 def test_different_inputs():
     a = on.workflow_call.input()
@@ -635,45 +635,45 @@ def test_different_inputs():
 
 
 @expect(
+    """\
+    # generated from test_workflow.py::test_id
+    on:
+      workflow_dispatch: {}
+    jobs:
+      test_id:
+        runs-on: ubuntu-latest
+        steps:
+        - id: one
+          run: one
+        - id: y-1
+          run: two
+        - id: yy
+          run: two prime
+        - id: y
+          run: three
+        - name: use x
+          run: ${{ steps.one.outputs }}
+        - name: use y
+          run: ${{ steps.y-1.outcome }}
+        - name: use yy
+          run: ${{ steps.yy.outputs.a }}
+        - name: use z
+          run: ${{ steps.y.result }}
+        - id: step-1
+          name: anon0
+          run: ''
+        - id: step-2
+          name: anon1
+          run: ''
+        - id: step-3
+          name: anon2
+          run: ''
+        - name: use anonymous
+          run: |
+            ${{ steps.step-1.outcome }}
+            ${{ steps.step-2.outcome }}
+            ${{ steps.step-3.outcome }}
     """
-# generated from test_workflow.py::test_id
-on:
-  workflow_dispatch: {}
-jobs:
-  test_id:
-    runs-on: ubuntu-latest
-    steps:
-    - id: one
-      run: one
-    - id: y-1
-      run: two
-    - id: yy
-      run: two prime
-    - id: y
-      run: three
-    - name: use x
-      run: ${{ steps.one.outputs }}
-    - name: use y
-      run: ${{ steps.y-1.outcome }}
-    - name: use yy
-      run: ${{ steps.yy.outputs.a }}
-    - name: use z
-      run: ${{ steps.y.result }}
-    - id: step-1
-      name: anon0
-      run: ''
-    - id: step-2
-      name: anon1
-      run: ''
-    - id: step-3
-      name: anon2
-      run: ''
-    - name: use anonymous
-      run: |
-        ${{ steps.step-1.outcome }}
-        ${{ steps.step-2.outcome }}
-        ${{ steps.step-3.outcome }}
-"""
 )
 def test_id():
     on.workflow_dispatch()
@@ -692,23 +692,23 @@ def test_id():
 
 
 @expect(
+    """\
+    # generated from test_workflow.py::test_step_id_underscores
+    on:
+      workflow_dispatch: {}
+    jobs:
+      test_step_id_underscores:
+        runs-on: ubuntu-latest
+        steps:
+        - id: my-step
+          run: echo one
+        - id: my_other_step
+          run: echo two
+        - id: yet_another_step
+          run: echo three
+        - if: steps.my-step && steps.my_other_step && steps.yet_another_step
+          run: ''
     """
-# generated from test_workflow.py::test_step_id_underscores
-on:
-  workflow_dispatch: {}
-jobs:
-  test_step_id_underscores:
-    runs-on: ubuntu-latest
-    steps:
-    - id: my-step
-      run: echo one
-    - id: my_other_step
-      run: echo two
-    - id: yet_another_step
-      run: echo three
-    - if: steps.my-step && steps.my_other_step && steps.yet_another_step
-      run: ''
-"""
 )
 def test_step_id_underscores():
     on.workflow_dispatch()
@@ -719,17 +719,17 @@ def test_step_id_underscores():
 
 
 @expect(
+    """\
+    # generated from test_workflow.py::test_steps_array
+    on:
+      workflow_dispatch: {}
+    jobs:
+      j:
+        runs-on: ubuntu-latest
+        steps:
+        - name: ${{ steps.*.result }}
+          run: ''
     """
-# generated from test_workflow.py::test_steps_array
-on:
-  workflow_dispatch: {}
-jobs:
-  j:
-    runs-on: ubuntu-latest
-    steps:
-    - name: ${{ steps.*.result }}
-      run: ''
-"""
 )
 def test_steps_array():
     on.workflow_dispatch()
@@ -740,21 +740,21 @@ def test_steps_array():
 
 
 @expect(
+    """\
+    # generated from test_workflow.py::test_if_expr
+    on:
+      workflow_dispatch: {}
+    jobs:
+      test_if_expr:
+        runs-on: ubuntu-latest
+        steps:
+        - id: x
+          run: one
+        - if: steps.x.outcome == 'success'
+          run: two
+        - if: '!steps.x.outputs'
+          run: three
     """
-# generated from test_workflow.py::test_if_expr
-on:
-  workflow_dispatch: {}
-jobs:
-  test_if_expr:
-    runs-on: ubuntu-latest
-    steps:
-    - id: x
-      run: one
-    - if: steps.x.outcome == 'success'
-      run: two
-    - if: '!steps.x.outputs'
-      run: three
-"""
 )
 def test_if_expr():
     on.workflow_dispatch()
@@ -764,42 +764,42 @@ def test_if_expr():
 
 
 @expect(
+    """\
+    # generated from test_workflow.py::test_implicit_job_outputs
+    on:
+      workflow_dispatch: {}
+    jobs:
+      j1:
+        runs-on: ubuntu-latest
+        outputs:
+          one: ${{ steps.x.outputs.one }}
+          two: ${{ steps.x.outputs.two }}
+        steps:
+        - id: x
+          name: x
+          run: |
+            echo one=a >> $GITHUB_OUTPUTS
+            echo two=b >> $GITHUB_OUTPUTS
+      j2:
+        runs-on: ubuntu-latest
+        outputs:
+          one: ${{ steps.x.outputs.one }}
+          two: ${{ steps.x.outputs.two }}
+          three: ${{ steps.y.outputs.three }}
+          a: ${{ matrix.a }}
+        strategy:
+          matrix:
+            a: [1, 2, 3]
+        steps:
+        - id: x
+          name: x
+          run: |
+            echo one=a >> $GITHUB_OUTPUTS
+            echo two=b >> $GITHUB_OUTPUTS
+        - id: y
+          name: y
+          run: echo three=c >> $GITHUB_OUTPUTS
     """
-# generated from test_workflow.py::test_implicit_job_outputs
-on:
-  workflow_dispatch: {}
-jobs:
-  j1:
-    runs-on: ubuntu-latest
-    outputs:
-      one: ${{ steps.x.outputs.one }}
-      two: ${{ steps.x.outputs.two }}
-    steps:
-    - id: x
-      name: x
-      run: |
-        echo one=a >> $GITHUB_OUTPUTS
-        echo two=b >> $GITHUB_OUTPUTS
-  j2:
-    runs-on: ubuntu-latest
-    outputs:
-      one: ${{ steps.x.outputs.one }}
-      two: ${{ steps.x.outputs.two }}
-      three: ${{ steps.y.outputs.three }}
-      a: ${{ matrix.a }}
-    strategy:
-      matrix:
-        a: [1, 2, 3]
-    steps:
-    - id: x
-      name: x
-      run: |
-        echo one=a >> $GITHUB_OUTPUTS
-        echo two=b >> $GITHUB_OUTPUTS
-    - id: y
-      name: y
-      run: echo three=c >> $GITHUB_OUTPUTS
-"""
 )
 def test_implicit_job_outputs():
     on.workflow_dispatch()
@@ -818,30 +818,30 @@ def test_implicit_job_outputs():
 
 
 @expect(
+    """\
+    # generated from test_workflow.py::test_explicit_job_outputs
+    on:
+      workflow_dispatch: {}
+    jobs:
+      j:
+        runs-on: ubuntu-latest
+        outputs:
+          foo: ${{ steps.x.outputs.one }}
+          bar: ${{ steps.y.outputs.three }}
+          baz: ${{ matrix.a }}
+        strategy:
+          matrix:
+            a: [1, 2, 3]
+        steps:
+        - id: x
+          name: x
+          run: |
+            echo one=a >> $GITHUB_OUTPUTS
+            echo two=b >> $GITHUB_OUTPUTS
+        - id: y
+          name: y
+          run: echo three=c >> $GITHUB_OUTPUTS
     """
-# generated from test_workflow.py::test_explicit_job_outputs
-on:
-  workflow_dispatch: {}
-jobs:
-  j:
-    runs-on: ubuntu-latest
-    outputs:
-      foo: ${{ steps.x.outputs.one }}
-      bar: ${{ steps.y.outputs.three }}
-      baz: ${{ matrix.a }}
-    strategy:
-      matrix:
-        a: [1, 2, 3]
-    steps:
-    - id: x
-      name: x
-      run: |
-        echo one=a >> $GITHUB_OUTPUTS
-        echo two=b >> $GITHUB_OUTPUTS
-    - id: y
-      name: y
-      run: echo three=c >> $GITHUB_OUTPUTS
-"""
 )
 def test_explicit_job_outputs():
     on.workflow_dispatch()
@@ -855,26 +855,26 @@ def test_explicit_job_outputs():
 
 
 @expect(
+    """\
+    # generated from test_workflow.py::test_workflow_outputs
+    on:
+      workflow_call:
+        outputs:
+          one:
+            description: bla bla
+            value: ${{ jobs.j1.outputs.one }}
+          TWO:
+            value: ${{ jobs.j2.result == 'success' && jobs.j1.outputs.two || jobs.j2.outputs.three
+              }}
+    jobs:
+      j1:
+        outputs:
+          one: 1
+          two: 2
+      j2:
+        outputs:
+          three: 3
     """
-# generated from test_workflow.py::test_workflow_outputs
-on:
-  workflow_call:
-    outputs:
-      one:
-        description: bla bla
-        value: ${{ jobs.j1.outputs.one }}
-      TWO:
-        value: ${{ jobs.j2.result == 'success' && jobs.j1.outputs.two || jobs.j2.outputs.three
-          }}
-jobs:
-  j1:
-    outputs:
-      one: 1
-      two: 2
-  j2:
-    outputs:
-      three: 3
-"""
 )
 def test_workflow_outputs():
     one = on.workflow_call.output("bla bla")
@@ -893,29 +893,29 @@ def test_workflow_outputs():
 
 
 @expect(
+    """\
+    # generated from test_workflow.py::test_needs
+    on:
+      workflow_dispatch: {}
+    jobs:
+      j1: {}
+      j2:
+        needs: [j1]
+        runs-on: ubuntu-latest
+        steps:
+        - if: needs.j1
+          run: ''
+      j3:
+        needs: [j1, j2]
+        runs-on: ubuntu-latest
+        steps:
+        # needs j1
+        - run: ''
+        # needs j1, j2
+        - run: ''
+      j4:
+        needs: [j1, j3]
     """
-# generated from test_workflow.py::test_needs
-on:
-  workflow_dispatch: {}
-jobs:
-  j1: {}
-  j2:
-    needs: [j1]
-    runs-on: ubuntu-latest
-    steps:
-    - if: needs.j1
-      run: ''
-  j3:
-    needs: [j1, j2]
-    runs-on: ubuntu-latest
-    steps:
-    # needs j1
-    - run: ''
-    # needs j1, j2
-    - run: ''
-  j4:
-    needs: [j1, j3]
-"""
 )
 def test_needs():
     on.workflow_dispatch()
@@ -939,18 +939,18 @@ def test_needs():
 
 
 @expect(
+    """\
+    # generated from test_workflow.py::test_job_as_context
+    on:
+      workflow_dispatch: {}
+    jobs:
+      test_job_as_context:
+        runs-on: ubuntu-latest
+        steps:
+        - run: 'false'
+        - if: always()
+          run: echo ${{ job.status }}
     """
-# generated from test_workflow.py::test_job_as_context
-on:
-  workflow_dispatch: {}
-jobs:
-  test_job_as_context:
-    runs-on: ubuntu-latest
-    steps:
-    - run: 'false'
-    - if: always()
-      run: echo ${{ job.status }}
-"""
 )
 def test_job_as_context():
     on.workflow_dispatch()
@@ -959,31 +959,31 @@ def test_job_as_context():
 
 
 @expect(
+    """\
+    # generated from test_workflow.py::test_container
+    on:
+      workflow_dispatch: {}
+    jobs:
+      j1:
+        runs-on: ubuntu-latest
+        container:
+          image: ghcr.io/owner/image
+          credentials:
+            username: foo
+            password: baz
+          env:
+            NODE_ENV: development
+          ports:
+          - 80
+          volumes:
+          - my_docker_volume:/volume_mount
+          options:
+          - --cpus 1
+        steps:
+        - run: echo ${{ job.container.id }}
+      j2:
+        container: {}
     """
-# generated from test_workflow.py::test_container
-on:
-  workflow_dispatch: {}
-jobs:
-  j1:
-    runs-on: ubuntu-latest
-    container:
-      image: ghcr.io/owner/image
-      credentials:
-        username: foo
-        password: baz
-      env:
-        NODE_ENV: development
-      ports:
-      - 80
-      volumes:
-      - my_docker_volume:/volume_mount
-      options:
-      - --cpus 1
-    steps:
-    - run: echo ${{ job.container.id }}
-  j2:
-    container: {}
-"""
 )
 def test_container():
     on.workflow_dispatch()
@@ -1002,28 +1002,28 @@ def test_container():
 
 
 @expect(
+    """\
+    # generated from test_workflow.py::test_services
+    on:
+      workflow_dispatch: {}
+    jobs:
+      test_services:
+        runs-on: ubuntu-latest
+        steps:
+        - run: echo ${{ job.services.nginx.id }}
+        - run: echo ${{ job.services.redis.ports[6379] }}
+        services:
+          nginx:
+            image: nginx:latest
+            credentials: {}
+            ports:
+            - 8080:80
+          redis:
+            image: redis
+            credentials: {}
+            ports:
+            - 6379/tcp
     """
-# generated from test_workflow.py::test_services
-on:
-  workflow_dispatch: {}
-jobs:
-  test_services:
-    runs-on: ubuntu-latest
-    steps:
-    - run: echo ${{ job.services.nginx.id }}
-    - run: echo ${{ job.services.redis.ports[6379] }}
-    services:
-      nginx:
-        image: nginx:latest
-        credentials: {}
-        ports:
-        - 8080:80
-      redis:
-        image: redis
-        credentials: {}
-        ports:
-        - 6379/tcp
-"""
 )
 def test_services():
     on.workflow_dispatch()
@@ -1034,24 +1034,24 @@ def test_services():
 
 
 @expect(
+    """\
+    # generated from test_workflow.py::test_strategy_as_context
+    on:
+      workflow_dispatch: {}
+    jobs:
+      test_strategy_as_context:
+        runs-on: ubuntu-latest
+        strategy:
+          matrix:
+            a: [1, 2, 3]
+        steps:
+        - run: |
+            echo ${{ strategy }}
+            echo ${{ strategy }}
+            echo ${{ strategy }}
+            echo ${{ strategy.job-index }}
+            echo ${{ strategy.job-total }}
     """
-# generated from test_workflow.py::test_strategy_as_context
-on:
-  workflow_dispatch: {}
-jobs:
-  test_strategy_as_context:
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        a: [1, 2, 3]
-    steps:
-    - run: |
-        echo ${{ strategy }}
-        echo ${{ strategy }}
-        echo ${{ strategy }}
-        echo ${{ strategy.job-index }}
-        echo ${{ strategy.job-total }}
-"""
 )
 def test_strategy_as_context():
     on.workflow_dispatch()
@@ -1066,31 +1066,31 @@ def test_strategy_as_context():
 
 
 @expect(
+    """\
+    # generated from test_workflow.py::test_call
+    on:
+      workflow_dispatch: {}
+    jobs:
+      j1:
+        uses: ./.github/workflows/foo.yml
+        with:
+          arg-1: foo
+          arg_2: bar
+          arg_3: baz
+      j2:
+        uses: ./.github/workflows/foo.yml
+        with:
+          arg-1: foo
+          arg-2: bar
+      j3:
+        uses: foo/bar/.github/workflows/baz.yml@v1
+        secrets: inherit
+      j4:
+        uses: foo/bar/.github/workflows/baz.yml@v2
+        secrets:
+          a: ${{ secrets.baz }}
+          b: ${{ secrets.bazz }}
     """
-# generated from test_workflow.py::test_call
-on:
-  workflow_dispatch: {}
-jobs:
-  j1:
-    uses: ./.github/workflows/foo.yml
-    with:
-      arg-1: foo
-      arg_2: bar
-      arg_3: baz
-  j2:
-    uses: ./.github/workflows/foo.yml
-    with:
-      arg-1: foo
-      arg-2: bar
-  j3:
-    uses: foo/bar/.github/workflows/baz.yml@v1
-    secrets: inherit
-  j4:
-    uses: foo/bar/.github/workflows/baz.yml@v2
-    secrets:
-      a: ${{ secrets.baz }}
-      b: ${{ secrets.bazz }}
-"""
 )
 def test_call():
     on.workflow_dispatch()
@@ -1117,19 +1117,19 @@ def test_call():
 
 
 @expect(
+    """\
+    # generated from test_workflow.py::test_github_context
+    on:
+      workflow_dispatch: {}
+    jobs:
+      test_github_context:
+        runs-on: ubuntu-latest
+        steps:
+        - run: |
+            echo ${{ github.actor }}
+            echo ${{ github.workspace }}
+            echo ${{ github.event.sender }}
     """
-# generated from test_workflow.py::test_github_context
-on:
-  workflow_dispatch: {}
-jobs:
-  test_github_context:
-    runs-on: ubuntu-latest
-    steps:
-    - run: |
-        echo ${{ github.actor }}
-        echo ${{ github.workspace }}
-        echo ${{ github.event.sender }}
-"""
 )
 def test_github_context():
     on.workflow_dispatch()
@@ -1144,33 +1144,33 @@ def test_github_context():
 
 
 @expect(
-    """
-# generated from test_workflow.py::test_permissions
-on:
-  workflow_dispatch: {}
-permissions:
-  actions: read
-  deployments: write
-  statuses: none
-jobs:
-  j1:
-    permissions: read-all
-    runs-on: ubuntu-latest
-    steps:
-    - run: ''
-  j2:
-    permissions: write-all
-    runs-on: ubuntu-latest
-    steps:
-    - run: ''
-  j3:
+    """\
+    # generated from test_workflow.py::test_permissions
+    on:
+      workflow_dispatch: {}
     permissions:
-      discussions: write
-      packages: read
-    runs-on: ubuntu-latest
-    steps:
-    - run: ''
-"""
+      actions: read
+      deployments: write
+      statuses: none
+    jobs:
+      j1:
+        permissions: read-all
+        runs-on: ubuntu-latest
+        steps:
+        - run: ''
+      j2:
+        permissions: write-all
+        runs-on: ubuntu-latest
+        steps:
+        - run: ''
+      j3:
+        permissions:
+          discussions: write
+          packages: read
+        runs-on: ubuntu-latest
+        steps:
+        - run: ''
+    """
 )
 def test_permissions():
     on.workflow_dispatch()
@@ -1193,24 +1193,24 @@ def test_permissions():
 
 
 @expect(
-    """
-# generated from test_workflow.py::test_defaults
-on:
-  workflow_dispatch: {}
-defaults:
-  run:
-    shell: zsh
-    working-directory: foo
-jobs:
-  j:
-    runs-on: ubuntu-latest
+    """\
+    # generated from test_workflow.py::test_defaults
+    on:
+      workflow_dispatch: {}
     defaults:
       run:
-        shell: fish
-        working-directory: bar
-    steps:
-    - run: echo hello
-"""
+        shell: zsh
+        working-directory: foo
+    jobs:
+      j:
+        runs-on: ubuntu-latest
+        defaults:
+          run:
+            shell: fish
+            working-directory: bar
+        steps:
+        - run: echo hello
+    """
 )
 def test_defaults():
     on.workflow_dispatch()
@@ -1224,28 +1224,28 @@ def test_defaults():
 
 
 @expect(
+    """\
+    # generated from test_workflow.py::test_concurrency
+    on:
+      workflow_dispatch: {}
+    concurrency:
+      group: ${{ github.ref || github.run_id }}
+      cancel-in-progress: true
+    jobs:
+      j1:
+        runs-on: ubuntu-latest
+        concurrency:
+          group: bar
+          cancel-in-progress: ${{ !contains(github.ref, 'release') }}
+        steps:
+        - run: echo hello
+      j2:
+        runs-on: ubuntu-latest
+        concurrency:
+          group: bar
+        steps:
+        - run: ''
     """
-# generated from test_workflow.py::test_concurrency
-on:
-  workflow_dispatch: {}
-concurrency:
-  group: ${{ github.ref || github.run_id }}
-  cancel-in-progress: true
-jobs:
-  j1:
-    runs-on: ubuntu-latest
-    concurrency:
-      group: bar
-      cancel-in-progress: ${{ !contains(github.ref, 'release') }}
-    steps:
-    - run: echo hello
-  j2:
-    runs-on: ubuntu-latest
-    concurrency:
-      group: bar
-    steps:
-    - run: ''
-"""
 )
 def test_concurrency():
     on.workflow_dispatch()
@@ -1265,24 +1265,24 @@ def test_concurrency():
 
 
 @expect(
+    """\
+    # generated from test_workflow.py::test_environment
+    on:
+      workflow_dispatch: {}
+    jobs:
+      j1:
+        runs-on: ubuntu-latest
+        environment: production
+        steps:
+        - run: ''
+      j2:
+        runs-on: ubuntu-latest
+        environment:
+          name: staging
+          url: https://example.com
+        steps:
+        - run: ''
     """
-# generated from test_workflow.py::test_environment
-on:
-  workflow_dispatch: {}
-jobs:
-  j1:
-    runs-on: ubuntu-latest
-    environment: production
-    steps:
-    - run: ''
-  j2:
-    runs-on: ubuntu-latest
-    environment:
-      name: staging
-      url: https://example.com
-    steps:
-    - run: ''
-"""
 )
 def test_environment():
     on.workflow_dispatch()
@@ -1299,25 +1299,25 @@ def test_environment():
 
 
 @expect(
+    """\
+    # generated from test_workflow.py::test_step_comments
+    on:
+      workflow_dispatch: {}
+    jobs:
+      test_step_comments:
+        runs-on: ubuntu-latest
+        steps:
+        - name: foo  # name comment
+          if: true
+          run: |  # run comment
+            echo 1
+            echo 2
+        - name: Action
+          uses: ./an/action  # uses comment
+          with: # with comment
+            foo: bar
+            baz: qux
     """
-# generated from test_workflow.py::test_step_comments
-on:
-  workflow_dispatch: {}
-jobs:
-  test_step_comments:
-    runs-on: ubuntu-latest
-    steps:
-    - name: foo  # name comment
-      if: true
-      run: |  # run comment
-        echo 1
-        echo 2
-    - name: Action
-      uses: ./an/action  # uses comment
-      with: # with comment
-        foo: bar
-        baz: qux
-"""
 )
 def test_step_comments():
     on.workflow_dispatch()

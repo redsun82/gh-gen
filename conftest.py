@@ -50,7 +50,7 @@ def pytest_configure(config: pytest.Config):
 
 def expect(expected: str | None = None):
     assert not callable(expected), "replace @expect with @expect()"
-    expected = expected and expected.lstrip("\n")
+    expected = expected and textwrap.dedent(expected)
     call = _Call.get()
 
     def decorator(f):
@@ -172,6 +172,7 @@ class TestRepo:
             def split(s):
                 return s.splitlines(keepends=True)
 
+            diff = textwrap.dedent(diff)
             up = inspect.currentframe().f_back
             name = next(var for var, value in up.f_locals.items() if value is self)
             call = _Call.get(f"{name}.expect_diff")
@@ -248,7 +249,13 @@ def pytest_unconfigure(config):
                 elif expected:
                     output.write(offset * " ")
                 if expected and "\n" in expected:
-                    print(f'{name}(\n    """\n{expected}\n"""\n)', file=output)
+                    # cover case where offset == 1 because of `@expect`
+                    offset = offset // 4 * 4 + 4
+                    expected = expected.replace("\n", "\n" + " " * offset)
+                    print(
+                        f'{name}(\n    """\\\n{"":{offset}}{expected}\n{"":{offset}}"""\n)',
+                        file=output,
+                    )
                 elif expected:
                     print(f"{name}({expected!r})", file=output)
                 current = (
