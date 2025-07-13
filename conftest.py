@@ -162,6 +162,7 @@ class TestRepo:
             self.config = config
             path = pathlib.Path(path)
             assert not path.is_absolute()
+            path.parent.mkdir(parents=True, exist_ok=True)
             self.path = path
             contents = contents and textwrap.dedent(contents)
             self.contents = contents or ""
