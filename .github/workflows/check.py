@@ -7,4 +7,4 @@ def check():
     on.pull_request().push()
     checkout()
     setup_uv()
-    pre_commit().name("Check")
+    pre_commit().id("Check")

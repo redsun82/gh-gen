@@ -159,7 +159,7 @@ class TestRepo:
             path: str | os.PathLike,
             contents: str | None = None,
         ):
-            self.config = config
+            self._config = config
             path = pathlib.Path(path)
             assert not path.is_absolute()
             path.parent.mkdir(parents=True, exist_ok=True)
@@ -169,6 +169,13 @@ class TestRepo:
             if contents is not None:
                 path.write_text(contents)
 
+        def expect_unchanged(self):
+            if self.contents is None:
+                assert not self.path.exists(), f"{self.path} should not exist"
+            else:
+                assert self.path.exists(), f"{self.path} is not present"
+                assert self.path.read_text() == self.contents, f"{self.path} changed"
+
         def expect_diff(self, diff: str = ""):
             def split(s):
                 return s.splitlines(keepends=True)
@@ -177,30 +184,33 @@ class TestRepo:
             up = inspect.currentframe().f_back
             name = next(var for var, value in up.f_locals.items() if value is self)
             call = _Call.get(f"{name}.expect_diff")
+            assert self.path.exists(), f"{self.path} was not created"
             new_contents = self.path.read_text()
             actual_diff = difflib.unified_diff(
                 split(self.contents),
                 split(new_contents),
             )
-            next(actual_diff)  # skip ---
+            assert next(
+                actual_diff, None
+            ), f"{self.path} remained unchanged"  # skip ---
             next(actual_diff)  # skip +++
             actual_diff = list(actual_diff)
             expected_diff = split(diff.lstrip())
-            if not self.config.getoption("--learn"):
+            if not self._config.getoption("--learn"):
                 assert (
                     actual_diff == expected_diff
                 ), f"diff for {self.path} does not match expected one"
             elif actual_diff != expected_diff:
-                self.config.stash[_learn].append((call, "".join(actual_diff).rstrip()))
+                self._config.stash[_learn].append((call, "".join(actual_diff).rstrip()))
+            self.contents = new_contents
 
     def __init__(self, config: pytest.Config, path: pathlib.Path):
-        self.config = config
+        self._config = config
         self.path = path
         self.files = {}
 
     def __enter__(self):
         self._cwd = pathlib.Path.cwd()
-        self.path.mkdir()
         subprocess.run(["git", "init"], cwd=self.path, check=True)
         os.chdir(self.path)
         return self
@@ -209,16 +219,21 @@ class TestRepo:
         os.chdir(self._cwd)
 
     def file(self, path: str | os.PathLike, contents: str | None = None) -> File:
-        return self.File(self.config, path, contents)
+        return self.File(self._config, path, contents)
+
+    def config(self, contents: str | None = None) -> File:
+        return self.file("gh-gen.yml", contents)
+
+    def lock(self, contents: str | None = None) -> File:
+        return self.file("gh-gen.lock", contents)
 
 
 @pytest.fixture
-def repo(request: pytest.FixtureRequest, tmp_path: pathlib.Path):
+def repo(pytestconfig: pytest.Config, tmp_path: pathlib.Path):
     """
     Fixture to create a temporary git repository for testing.
     """
-    repo_path = tmp_path / request.node.name
-    with TestRepo(request.config, repo_path) as repo:
+    with TestRepo(pytestconfig, tmp_path) as repo:
         yield repo
 
 

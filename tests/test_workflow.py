@@ -378,7 +378,7 @@ def test_runs_on_in_worfklow_with_name():
       my_job:
         runs-on: ubuntu-latest
         steps:
-        - name: salutations
+        - id: salutations
           run: echo hello
         - run: echo $WHO
           env:
@@ -412,7 +412,7 @@ def test_steps():
 
     @job
     def my_job():
-        step.run("echo hello").name("salutations")
+        step.run("echo hello").id("salutations")
         run("echo $WHO").env(WHO="world")
         step("catastrophe").run("echo oh no").if_("failure()")
         uses("actions/checkout@v4").with_(ref="dev")

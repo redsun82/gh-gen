@@ -28,13 +28,13 @@ def _make_id(s: str) -> str:
     return ret
 
 
-def is_valid_name(name: str) -> bool:
+def is_valid_id(id: str) -> bool:
     """Check if the name is a valid Python identifier, lowercase, and not a keyword."""
-    return name.isidentifier() and name.islower() and not keyword.iskeyword(name)
+    return id.isidentifier() and id.islower() and not keyword.iskeyword(id)
 
 
 class Action(ConfigElement):
-    name: str
+    id: str
     title: str
     inputs: list[ActionInput]
 
@@ -61,14 +61,14 @@ class Action(ConfigElement):
     @staticmethod
     def from_spec(action: str) -> "Action":
         """Parse an action string into its name and optional version."""
-        name = None
+        id = None
         version = None
         spec = action
         if "=" in spec:
-            name, _, spec = spec.partition("=")
-            if not is_valid_name(name):
+            id, _, spec = spec.partition("=")
+            if not is_valid_id(id):
                 raise ValueError(
-                    f"Invalid name {name}, must be a valid lowercase python identifier"
+                    f"Invalid name {id}, must be a valid lowercase python identifier"
                 )
         if "@" in spec:
             spec, _, version = spec.partition("@")
@@ -87,7 +87,7 @@ class Action(ConfigElement):
                 )
             case [".", head, *tail] if version is None:
                 return LocalAction(
-                    name=name or _make_id(tail[-1]), path=f"{head}/{'/'.join(tail)}"
+                    id=id or _make_id(tail[-1]), path=f"{head}/{'/'.join(tail)}"
                 )
             case ["", *_] | [_, "", *_]:
                 raise ValueError(
@@ -95,7 +95,7 @@ class Action(ConfigElement):
                 )
             case [owner, repo, *path]:
                 return RemoteAction(
-                    name=name or _make_id("_".join([repo, *path])),
+                    id=id or _make_id("_".join([repo, *path])),
                     owner=owner,
                     repo=repo,
                     path="/".join(path),
@@ -111,6 +111,23 @@ class Action(ConfigElement):
 
 class LockData(ConfigElement):
     actions: list[Action] = dataclasses.field(default_factory=list)
+
+
+class LocalAction(Action):
+    path: str
+
+    @property
+    def spec(self) -> str:
+        return f"./{self.path}"
+
+    def fetch(self):
+        """Fetch inputs from the local action directory."""
+        source = project_dir().joinpath(self.path, "action.yml")
+        if not source.exists():
+            raise FileNotFoundError(f"Action inputs file not found: {source}")
+
+        with source.open() as f:
+            self.inputs = _parse_inputs(f)
 
 
 class RemoteAction(Action):
@@ -195,23 +212,6 @@ class RemoteAction(Action):
             self.sha = self.resolved_ref
 
 
-class LocalAction(Action):
-    path: str
-
-    @property
-    def spec(self) -> str:
-        return f"./{self.path}"
-
-    def fetch(self):
-        """Fetch inputs from the local action directory."""
-        source = project_dir().joinpath(self.path, "action.yml")
-        if not source.exists():
-            raise FileNotFoundError(f"Action inputs file not found: {source}")
-
-        with source.open() as f:
-            self.inputs = _parse_inputs(f)
-
-
 def _parse_inputs(f: typing.IO[str]) -> list[ActionInput]:
     action_data = yaml.load(f)
     return [
@@ -229,7 +229,7 @@ def sync_lock_data(
     uses = args.config.uses or {}
     lock_file = project_dir() / "gh-gen.lock"
     lock_data = load(LockData, lock_file)
-    actions = {a.name: a for a in lock_data.actions}
+    actions = {a.id: a for a in lock_data.actions}
     for name in list(actions):
         if name not in uses:
             del actions[name]
@@ -271,8 +271,9 @@ def sync_lock_data(
             message[0] += f"title updated"
         for m in message:
             logging.info(m)
-    lock_data.actions[:] = sorted(actions.values(), key=lambda a: a.name)
+    lock_data.actions[:] = sorted(actions.values(), key=lambda a: a.id)
     dump(lock_data, lock_file)
+    args.includes[0].mkdir(parents=True, exist_ok=True)
     generated = args.includes[0] / "actions.py"
     renderer = pystache.Renderer(search_dirs=[pathlib.Path(__file__).parent])
     with open(generated, "w") as out:

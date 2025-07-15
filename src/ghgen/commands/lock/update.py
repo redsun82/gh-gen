@@ -28,6 +28,6 @@ def run(args: argparse.Namespace):
                 f"The following actions are not defined in the configuration: {', '.join(missing)}"
             )
     else:
-        actions = list(args.config.uses)
+        actions = "all"
 
     sync_lock_data(args, actions)

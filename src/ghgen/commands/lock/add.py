@@ -13,12 +13,12 @@ def add_arguments(parser: argparse.ArgumentParser):
         type=str,
         help="The action to add as a dependency (e.g., `actions/checkout@v2`)",
         nargs="*",
-        metavar="[name=](owner/repo[/path][@ref] | ./path)",
+        metavar="[id=](owner/repo[/path][@ref] | ./path)",
     )
     parser.add_argument(
-        "--title",
+        "--name",
         type=str,
-        help="The title to give the generated steps",
+        help="The name to give to the generated steps. The action's own name is used by default",
     )
     parser.add_argument(
         "--yes",
@@ -55,29 +55,29 @@ def run(args: argparse.Namespace):
     actions = list(map(Action.from_spec, args.actions))
     uses = args.config.yaml.setdefault("uses", {})
     for a in actions:
-        clause = dict(uses=a.spec, title=args.title) if args.title else a.spec
-        if a.name in uses:
-            if uses[a.name] == clause:
+        clause = dict(uses=a.spec, name=args.name) if args.name else a.spec
+        if a.id in uses:
+            if uses[a.id] == clause:
                 print(
-                    f"{a.name} already exists in configuration with same settings, skipping"
+                    f"{a.id} already exists in configuration with same settings, skipping"
                 )
                 continue
             if not ask(
-                f"{a.name} already exists in configuration (as {uses[a.name]}). Overwrite?"
+                f"{a.id} already exists in configuration (as {uses[a.id]}). Overwrite?"
             ):
                 print("...skipping")
                 continue
         other_matching_specs = [
             (n, c)
             for n, c in uses.items()
-            if n != a.name and _unversioned_spec_from_clause(c) == a.unversioned_spec
+            if n != a.id and _unversioned_spec_from_clause(c) == a.unversioned_spec
         ]
         if other_matching_specs and not ask(
             f"{a.unversioned_spec} is already present in configuration as "
             f"{', '.join(f'{n}={c}' for n, c in other_matching_specs)}. Add it anyway?"
         ):
             continue
-        uses[a.name] = clause
+        uses[a.id] = clause
     args.config.reload()
     sync_lock_data(args)
     dump(args.config.yaml, config_file())
