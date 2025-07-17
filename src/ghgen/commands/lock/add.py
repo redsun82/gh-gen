@@ -80,4 +80,5 @@ def run(args: argparse.Namespace):
         uses[a.id] = clause
     args.config.reload()
     sync_lock_data(args)
+    print("PROUT", args.config)
     dump(args.config.yaml, config_file())

@@ -195,7 +195,11 @@ class RemoteAction(Action):
     def fetch(self):
         """Fetch inputs from the remote action repository."""
         self.resolved_ref = self.ref or self._gh_api_jq("releases/latest", ".tag_name")
-        address = f"contents/{self.path}/action.yml?ref={self.resolved_ref}"
+        address = str(
+            pathlib.PurePosixPath(
+                "contents", self.path, f"action.yml?ref={self.resolved_ref}"
+            )
+        )
         with self._gh_api("application/vnd.github.v3.raw", address) as out:
             self.inputs = _parse_inputs(out)
         for kind in ("tags", "heads"):

@@ -6,8 +6,9 @@ import textwrap
 
 import pytest
 
-from src.ghgen.ctx import workflow, GenerationError, _get_var_name
+from src.ghgen.ctx import workflow, GenerationError
 from src.ghgen.commands.generate import generate_workflow
+from src.ghgen.commands.utils import project_dir
 import pathlib
 import inspect
 import dis
@@ -162,12 +163,16 @@ class TestRepo:
             self._config = config
             path = pathlib.Path(path)
             assert not path.is_absolute()
-            path.parent.mkdir(parents=True, exist_ok=True)
             self.path = path
-            contents = contents and textwrap.dedent(contents)
-            self.contents = contents or ""
             if contents is not None:
-                path.write_text(contents)
+                self.write(contents)
+            else:
+                self.contents = ""
+
+        def write(self, contents: str):
+            self.path.parent.mkdir(parents=True, exist_ok=True)
+            self.contents = textwrap.dedent(contents)
+            self.path.write_text(self.contents)
 
         def expect_unchanged(self):
             if self.contents is None:
@@ -213,6 +218,8 @@ class TestRepo:
         self._cwd = pathlib.Path.cwd()
         subprocess.run(["git", "init"], cwd=self.path, check=True)
         os.chdir(self.path)
+        project_dir.cache_clear()
+        project_dir()
         return self
 
     def __exit__(self, *args):
