@@ -184,80 +184,82 @@ def test_local(repo, monkeypatch):
     )
 
 
-@pytest.fixture
-def mock_gh_api_call(monkeypatch):
-    def f(target, version, sha, contents, *, as_latest=False, as_branch=False):
+class MockedGhApi:
+    def __init__(self, monkeypatch):
+        self.calls = {}
+
         def mock_subprocess_popen(cmd, *, text, stdout, stderr=None):
             assert text is True
             assert stdout is subprocess.PIPE
             ret = mock.MagicMock()
             ret.__enter__.return_value = ret
-            ret.returncode = 0
-            print("PROUT", cmd)
-            match cmd:
-                case [
-                    "gh",
-                    "api",
-                    "-H",
-                    "Accept: application/vnd.github+json",
-                    address,
-                    "--jq",
-                    ".tag_name",
-                ] if (
-                    as_latest and address == f"repos/{target}/releases/latest"
-                ):
-                    ret.stdout.read.return_value = f"{version}\n"
-                case [
-                    "gh",
-                    "api",
-                    "-H",
-                    "Accept: application/vnd.github.v3.raw",
-                    address,
-                ] if (
-                    address == f"repos/{target}/contents/action.yml?ref={version}"
-                ):
-                    ret.stdout = io.StringIO(textwrap.dedent(contents))
-                case [
-                    "gh",
-                    "api",
-                    "-H",
-                    "Accept: application/vnd.github+json",
-                    address,
-                    "--jq",
-                    ".object.sha",
-                ] if (
-                    address == f"repos/{target}/git/ref/tags/{version}"
-                ):
-                    if as_branch:
-                        raise subprocess.CalledProcessError
-                    else:
-                        ret.stdout.read.return_value = f"{sha}\n"
-                case [
-                    "gh",
-                    "api",
-                    "-H",
-                    "Accept: application/vnd.github+json",
-                    address,
-                    "--jq",
-                    ".object.sha",
-                ] if (
-                    as_branch and address == f"repos/{target}/git/ref/heads/{version}"
-                ):
-                    ret.stdout.read.return_value = f"{sha}\n"
-                case _:
-                    assert False, f"unexpected command: {cmd}"
+            try:
+                value = self.calls[tuple(cmd)]
+                ret.returncode = 0
+                ret.stdout = io.StringIO(value)
+            except KeyError:
+                ret.returncode = 1
             return ret
 
         monkeypatch.setattr("subprocess.Popen", mock_subprocess_popen)
 
-    return f
+    def add(
+        self,
+        target,
+        version,
+        sha,
+        contents,
+        *,
+        as_latest=False,
+        as_branch=False,
+        path=None,
+    ):
+        path_to_action = "action.yml" if path is None else f"{path}/action.yml"
+        if as_latest:
+            self.calls[
+                "gh",
+                "api",
+                "-H",
+                "Accept: application/vnd.github+json",
+                f"repos/{target}/releases/latest",
+                "--jq",
+                ".tag_name",
+            ] = f"{version}\n"
+        self.calls[
+            "gh",
+            "api",
+            "-H",
+            "Accept: application/vnd.github.v3.raw",
+            f"repos/{target}/contents/{path_to_action}?ref={version}",
+        ] = textwrap.dedent(contents)
+        self.calls[
+            "gh",
+            "api",
+            "-H",
+            "Accept: application/vnd.github+json",
+            f"repos/{target}/git/ref/{'heads' if as_branch else 'tags'}/{version}",
+            "--jq",
+            ".object.sha",
+        ] = f"{sha}\n"
+
+    def clear(self):
+        self.calls.clear()
+
+    def __call__(self, *args, **kwargs):
+        self.clear()
+        self.add(*args, **kwargs)
 
 
-def test_remote(repo, mock_gh_api_call):
+@pytest.fixture
+def mock_gh_api_calls(monkeypatch):
+    return MockedGhApi(monkeypatch)
+
+
+def test_remote(repo, mock_gh_api_calls):
     config = repo.config()
     print("repo", repo.path)
     lock = repo.lock()
-    mock_gh_api_call(
+    mock_gh_api_calls(
         "owner/repo",
         "v2",
         "this_is_a_sha",
@@ -299,5 +301,267 @@ def test_remote(repo, mock_gh_api_call):
         +  ref: v2
         +  resolved-ref: v2
         +  sha: this_is_a_sha
+        """
+    )
+
+    # fetch latest version
+    mock_gh_api_calls(
+        "owner/foo",
+        "v3.2.1",
+        "another_sha",
+        """\
+        name: Foo Action
+        inputs:
+            an-input:
+                description: Input 1
+                required: true
+        """,
+        as_latest=True,
+    )
+    main(["add", "owner/foo", "-v"])
+    config.expect_diff(
+        """\
+        @@ -1,2 +1,3 @@
+         uses:
+           repo: owner/repo@v2
+        +  foo: owner/foo
+        """
+    )
+    lock.expect_diff(
+        """\
+        @@ -1,4 +1,15 @@
+         actions:
+        +- id: foo
+        +  title: Foo
+        +  inputs:
+        +  - name: an_input
+        +    id: an-input
+        +    required: true
+        +  owner: owner
+        +  repo: foo
+        +  path: ''
+        +  resolved-ref: v3.2.1
+        +  sha: another_sha
+         - id: repo
+           title: Repo
+           inputs:
+        """
+    )
+
+    # test with path
+    mock_gh_api_calls(
+        "owner/repo",
+        "v1.0.0",
+        "bar_sha",
+        """\
+        name: Bar Action
+        """,
+        path="path/to/bar",
+    )
+    main(["add", "owner/repo/path/to/bar@v1.0.0", "-v"])
+    config.expect_diff(
+        """\
+        @@ -1,3 +1,4 @@
+         uses:
+           repo: owner/repo@v2
+           foo: owner/foo
+        +  repo_path_to_bar: owner/repo/path/to/bar@v1.0.0
+        """
+    )
+    lock.expect_diff(
+        """\
+        @@ -25,3 +25,12 @@
+           ref: v2
+           resolved-ref: v2
+           sha: this_is_a_sha
+        +- id: repo_path_to_bar
+        +  title: Repo path to bar
+        +  inputs: []
+        +  owner: owner
+        +  repo: repo
+        +  path: path/to/bar
+        +  ref: v1.0.0
+        +  resolved-ref: v1.0.0
+        +  sha: bar_sha
+        """
+    )
+
+    # add with branch
+    mock_gh_api_calls(
+        "owner/bar",
+        "main",
+        "branch_sha",
+        """\
+        name: Branch Action
+        """,
+        as_branch=True,
+    )
+    main(["add", "x=owner/bar@main", "-v"])
+    config.expect_diff(
+        """\
+        @@ -2,3 +2,4 @@
+           repo: owner/repo@v2
+           foo: owner/foo
+           repo_path_to_bar: owner/repo/path/to/bar@v1.0.0
+        +  x: owner/bar@main
+        """
+    )
+    lock.expect_diff(
+        """\
+        @@ -34,3 +34,12 @@
+           ref: v1.0.0
+           resolved-ref: v1.0.0
+           sha: bar_sha
+        +- id: x
+        +  title: X
+        +  inputs: []
+        +  owner: owner
+        +  repo: bar
+        +  path: ''
+        +  ref: main
+        +  resolved-ref: main
+        +  sha: branch_sha
+        """
+    )
+
+    # update one
+    mock_gh_api_calls(
+        "owner/foo",
+        "v3.3.3",
+        "updated_sha",
+        """\
+        name: Foo Action
+        inputs:
+            an-input:
+                description: Input 1
+                required: true
+        """,
+        as_latest=True,
+    )
+    main(["update", "foo", "-v"])
+    config.expect_unchanged()
+    lock.expect_diff(
+        """\
+        @@ -8,8 +8,8 @@
+           owner: owner
+           repo: foo
+           path: ''
+        -  resolved-ref: v3.2.1
+        -  sha: another_sha
+        +  resolved-ref: v3.3.3
+        +  sha: updated_sha
+         - id: repo
+           title: Repo
+           inputs:
+        """
+    )
+
+    # remove one
+    main(["remove", "repo_path_to_bar", "-v"])
+    config.expect_diff(
+        """\
+        @@ -1,5 +1,4 @@
+         uses:
+           repo: owner/repo@v2
+           foo: owner/foo
+        -  repo_path_to_bar: owner/repo/path/to/bar@v1.0.0
+           x: owner/bar@main
+        """
+    )
+    lock.expect_diff(
+        """\
+        @@ -25,15 +25,6 @@
+           ref: v2
+           resolved-ref: v2
+           sha: this_is_a_sha
+        -- id: repo_path_to_bar
+        -  title: Repo path to bar
+        -  inputs: []
+        -  owner: owner
+        -  repo: repo
+        -  path: path/to/bar
+        -  ref: v1.0.0
+        -  resolved-ref: v1.0.0
+        -  sha: bar_sha
+         - id: x
+           title: X
+           inputs: []
+        """
+    )
+
+    # update all
+    mock_gh_api_calls.clear()
+    mock_gh_api_calls.add(
+        "owner/repo",
+        "v2",
+        "updated_sha_repo",
+        """\
+        name: Repo Action
+        """,
+    )
+    mock_gh_api_calls.add(
+        "owner/foo",
+        "v4.2.1",
+        "updated_sha_foo",
+        """\
+        name: Foo Action
+        """,
+        as_latest=True,
+    )
+    mock_gh_api_calls.add(
+        "owner/bar",
+        "main",
+        "updated_sha_bar",
+        """\
+        name: Bar Action
+        """,
+        as_branch=True,
+    )
+    main(["update", "-v"])
+    config.expect_unchanged()
+    lock.expect_diff(
+        """\
+        @@ -1,30 +1,21 @@
+         actions:
+         - id: foo
+           title: Foo
+        -  inputs:
+        -  - name: an_input
+        -    id: an-input
+        -    required: true
+        +  inputs: []
+           owner: owner
+           repo: foo
+           path: ''
+        -  resolved-ref: v3.3.3
+        -  sha: updated_sha
+        +  resolved-ref: v4.2.1
+        +  sha: updated_sha_foo
+         - id: repo
+           title: Repo
+        -  inputs:
+        -  - name: input1
+        -    id: input1
+        -    required: true
+        -  - name: input2
+        -    id: input2
+        -    required: false
+        +  inputs: []
+           owner: owner
+           repo: repo
+           path: ''
+           ref: v2
+           resolved-ref: v2
+        -  sha: this_is_a_sha
+        +  sha: updated_sha_repo
+         - id: x
+           title: X
+           inputs: []
+        @@ -33,4 +24,4 @@
+           path: ''
+           ref: main
+           resolved-ref: main
+        -  sha: branch_sha
+        +  sha: updated_sha_bar
         """
     )
