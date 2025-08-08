@@ -54,6 +54,9 @@ def checkout(
         "Checkout"
     ).comment(
         uses="v4.2.2"
+    ).outputs(
+        "ref",
+        "commit",
     )
 
 
@@ -118,4 +121,9 @@ def setup_uv(
         "Setup uv"
     ).comment(
         uses="v6.4.3"
+    ).outputs(
+        "uv-version",
+        "uv-path",
+        "uvx-path",
+        "cache-hit",
     )

@@ -5,7 +5,7 @@ from .element import ConfigElement
 
 class UsesClause(ConfigElement):
     uses: str
-    title: str
+    name: str
 
 
 class Config(ConfigElement):

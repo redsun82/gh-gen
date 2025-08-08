@@ -35,7 +35,7 @@ def is_valid_id(id: str) -> bool:
 
 class Action(ConfigElement):
     id: str
-    title: str
+    name: str
     inputs: list[ActionInput]
     outputs: list[str]
 
@@ -239,45 +239,45 @@ def sync_lock_data(
     lock_file = project_dir() / "gh-gen.lock"
     lock_data = load(LockData, lock_file)
     actions = {a.id: a for a in lock_data.actions}
-    for name in list(actions):
-        if name not in uses:
-            del actions[name]
+    for id in list(actions):
+        if id not in uses:
+            del actions[id]
     match actions_to_update:
         case list():
-            to_update = lambda n: n in actions_to_update
+            to_update = lambda id: id in actions_to_update
         case "all":
-            to_update = lambda n: True
+            to_update = lambda id: True
         case "changed":
-            to_update = lambda n: n not in actions or actions[n].spec != spec
+            to_update = lambda id: id not in actions or actions[id].spec != spec
         case _:
             assert False, "actions_to_update must be a list, 'all', or 'changed'"
-    for name, u in uses.items():
+    for id, u in uses.items():
         match u:
-            case UsesClause(uses=spec, title=title):
+            case UsesClause(uses=spec, name=name):
                 pass
             case str() as spec:
-                title = inflection.titleize(name).lower().capitalize()
+                name = inflection.titleize(id).lower().capitalize()
             case _:
                 raise TypeError("malformed lock file")
-        if not to_update(name):
+        if not to_update(id):
             continue
-        prev = actions.get(name)
-        actions[name] = Action.from_spec(f"{name}={spec}")
-        actions[name].title = title
+        prev = actions.get(id)
+        actions[id] = Action.from_spec(f"{id}={spec}")
+        actions[id].name = name
         # TODO: async
-        actions[name].fetch()
+        actions[id].fetch()
         message = [f"{name}: "]
         if prev is None:
-            message[0] += f"{actions[name].display_spec}"
-        elif prev == actions[name]:
+            message[0] += f"{actions[id].display_spec}"
+        elif prev == actions[id]:
             message[0] += "✅"
-        elif prev.display_spec != actions[name].display_spec:
+        elif prev.display_spec != actions[id].display_spec:
             message[0] += f"{prev.display_spec}"
-            message.append(f"    → {actions[name].display_spec}")
-        elif prev.inputs != actions[name].inputs:
+            message.append(f"    → {actions[id].display_spec}")
+        elif prev.inputs != actions[id].inputs:
             message[0] += f"inputs updated"
-        elif prev.title != actions[name].title:
-            message[0] += f"title updated"
+        elif prev.name != actions[id].name:
+            message[0] += f"name updated"
         for m in message:
             logging.info(m)
     lock_data.actions[:] = sorted(actions.values(), key=lambda a: a.id)

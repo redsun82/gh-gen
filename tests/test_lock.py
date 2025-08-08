@@ -43,7 +43,7 @@ def test_local(repo, monkeypatch):
         @@ -0,0 +1,14 @@
         +actions:
         +- id: foo
-        +  title: Foo
+        +  name: Foo
         +  inputs:
         +  - name: input1
         +    id: input1
@@ -82,7 +82,7 @@ def test_local(repo, monkeypatch):
            - output2
            path: my/actions/foo
         +- id: my_bar
-        +  title: My bar
+        +  name: My bar
         +  inputs: []
         +  outputs: []
         +  path: my/actions/bar
@@ -114,7 +114,7 @@ def test_local(repo, monkeypatch):
            outputs: []
            path: my/actions/bar
         +- id: other
-        +  title: Other
+        +  name: Other
         +  inputs:
         +  - name: input1
         +    id: input1
@@ -151,7 +151,7 @@ def test_local(repo, monkeypatch):
         @@ -1,17 +1,4 @@
          actions:
         -- id: foo
-        -  title: Foo
+        -  name: Foo
         -  inputs:
         -  - name: input1
         -    id: input1
@@ -164,7 +164,7 @@ def test_local(repo, monkeypatch):
         -  - output2
         -  path: my/actions/foo
          - id: my_bar
-           title: My bar
+           name: My bar
            inputs: []
         """
     )
@@ -184,7 +184,7 @@ def test_local(repo, monkeypatch):
         """\
         @@ -7,13 +7,8 @@
          - id: other
-           title: Other
+           name: Other
            inputs:
         -  - name: input1
         -    id: input1
@@ -306,7 +306,7 @@ def test_remote(repo, mock_gh_api_calls):
         @@ -0,0 +1,17 @@
         +actions:
         +- id: repo
-        +  title: Repo
+        +  name: Repo
         +  inputs:
         +  - name: input1
         +    id: input1
@@ -352,7 +352,7 @@ def test_remote(repo, mock_gh_api_calls):
         @@ -1,4 +1,16 @@
          actions:
         +- id: foo
-        +  title: Foo
+        +  name: Foo
         +  inputs:
         +  - name: an_input
         +    id: an-input
@@ -364,7 +364,7 @@ def test_remote(repo, mock_gh_api_calls):
         +  resolved-ref: v3.2.1
         +  sha: another_sha
          - id: repo
-           title: Repo
+           name: Repo
            inputs:
         """
     )
@@ -396,7 +396,7 @@ def test_remote(repo, mock_gh_api_calls):
            resolved-ref: v2
            sha: this_is_a_sha
         +- id: repo_path_to_bar
-        +  title: Repo path to bar
+        +  name: Repo path to bar
         +  inputs: []
         +  outputs: []
         +  owner: owner
@@ -435,7 +435,7 @@ def test_remote(repo, mock_gh_api_calls):
            resolved-ref: v1.0.0
            sha: bar_sha
         +- id: x
-        +  title: X
+        +  name: X
         +  inputs: []
         +  outputs: []
         +  owner: owner
@@ -474,7 +474,7 @@ def test_remote(repo, mock_gh_api_calls):
         +  resolved-ref: v3.3.3
         +  sha: updated_sha
          - id: repo
-           title: Repo
+           name: Repo
            inputs:
         """
     )
@@ -498,7 +498,7 @@ def test_remote(repo, mock_gh_api_calls):
            resolved-ref: v2
            sha: this_is_a_sha
         -- id: repo_path_to_bar
-        -  title: Repo path to bar
+        -  name: Repo path to bar
         -  inputs: []
         -  outputs: []
         -  owner: owner
@@ -508,7 +508,7 @@ def test_remote(repo, mock_gh_api_calls):
         -  resolved-ref: v1.0.0
         -  sha: bar_sha
          - id: x
-           title: X
+           name: X
            inputs: []
         """
     )
@@ -548,7 +548,7 @@ def test_remote(repo, mock_gh_api_calls):
         @@ -1,32 +1,23 @@
          actions:
          - id: foo
-           title: Foo
+           name: Foo
         -  inputs:
         -  - name: an_input
         -    id: an-input
@@ -563,7 +563,7 @@ def test_remote(repo, mock_gh_api_calls):
         +  resolved-ref: v4.2.1
         +  sha: updated_sha_foo
          - id: repo
-           title: Repo
+           name: Repo
         -  inputs:
         -  - name: input1
         -    id: input1
@@ -581,7 +581,7 @@ def test_remote(repo, mock_gh_api_calls):
         -  sha: this_is_a_sha
         +  sha: updated_sha_repo
          - id: x
-           title: X
+           name: X
            inputs: []
         @@ -36,4 +27,4 @@
            path: ''

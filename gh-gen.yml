@@ -3,4 +3,4 @@ uses:
   setup_uv: astral-sh/setup-uv
   pre_commit:
     uses: pre-commit/action
-    title: Check
+    name: Check
