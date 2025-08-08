@@ -1,15 +1,13 @@
 import collections.abc
 import contextlib
 import dataclasses
-import enum
 import inspect
 import itertools
 import re
 import textwrap
 import types
 import typing
-from copyreg import add_extension
-from dataclasses import dataclass, fields, asdict
+from dataclasses import dataclass, fields
 import pathlib
 
 import inflection
@@ -17,15 +15,10 @@ import inflection
 from .expr import (
     Expr,
     on_error,
-    contexts,
-    FlatMap,
-    Map,
     ErrorExpr,
     function,
-    reftree,
-    CallExpr,
 )
-from . import workflow, element
+from . import workflow
 from .contexts import *
 
 
@@ -292,7 +285,8 @@ def _ensure_element(start: Workflow | Job, path: tuple[str | int, ...]) -> typin
 
 
 def _get_workflow(path: str) -> Workflow:
-    assert isinstance(path, str)
+    if not isinstance(path, str):
+        raise ValueError("PROUT")
     if _ctx.current_workflow is None or _ctx.current_job is not None:
         _ctx.error(f"`{path}` must be used in a workflow")
         return Workflow()
