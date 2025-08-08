@@ -37,6 +37,7 @@ class Action(ConfigElement):
     id: str
     title: str
     inputs: list[ActionInput]
+    outputs: list[str]
 
     @property
     def spec(self) -> str:
@@ -57,6 +58,10 @@ class Action(ConfigElement):
     @property
     def comment(self) -> str | None:
         return None
+
+    @property
+    def has_outputs(self) -> bool:
+        return bool(self.outputs)
 
     @staticmethod
     def from_spec(action: str) -> "Action":
@@ -108,6 +113,16 @@ class Action(ConfigElement):
 
     def fetch(self): ...
 
+    def _load(self, f: typing.IO[str]):
+        action_data = yaml.load(f)
+        self.inputs = [
+            ActionInput(
+                name=id.replace("-", "_"), id=id, required=input_data.get("required")
+            )
+            for id, input_data in action_data.get("inputs", {}).items()
+        ]
+        self.outputs = [*action_data.get("outputs", {})]
+
 
 class LockData(ConfigElement):
     actions: list[Action] = dataclasses.field(default_factory=list)
@@ -127,7 +142,7 @@ class LocalAction(Action):
             raise FileNotFoundError(f"Action inputs file not found: {source}")
 
         with source.open() as f:
-            self.inputs = _parse_inputs(f)
+            self._load(f)
 
 
 class RemoteAction(Action):
@@ -201,7 +216,7 @@ class RemoteAction(Action):
             )
         )
         with self._gh_api("application/vnd.github.v3.raw", address) as out:
-            self.inputs = _parse_inputs(out)
+            self._load(out)
         for kind in ("tags", "heads"):
             try:
                 self.sha = self._gh_api_jq(
@@ -214,16 +229,6 @@ class RemoteAction(Action):
                 pass
         else:
             self.sha = self.resolved_ref
-
-
-def _parse_inputs(f: typing.IO[str]) -> list[ActionInput]:
-    action_data = yaml.load(f)
-    return [
-        ActionInput(
-            name=id.replace("-", "_"), id=id, required=input_data.get("required")
-        )
-        for id, input_data in action_data.get("inputs", {}).items()
-    ]
 
 
 def sync_lock_data(

@@ -693,6 +693,33 @@ def test_id():
 
 @expect(
     """\
+    # generated from test_workflow.py::test_outputs_and_dashes
+    on:
+      workflow_dispatch: {}
+    jobs:
+      test_outputs_and_dashes:
+        runs-on: ubuntu-latest
+        steps:
+        - id: x
+          run: one
+        - run: |
+            ${{ steps.x.outputs.an-output }}
+            ${{ steps.x.outputs.another-weird_output }}
+    """
+)
+def test_outputs_and_dashes():
+    on.workflow_dispatch()
+    x = run("one").outputs("an-output", "another-weird_output")
+    run(
+        f"""
+        {x.outputs.an_output}
+        {x.outputs.another_weird_output}
+        """
+    )
+
+
+@expect(
+    """\
     # generated from test_workflow.py::test_step_id_underscores
     on:
       workflow_dispatch: {}

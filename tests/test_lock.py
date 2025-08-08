@@ -23,6 +23,11 @@ def test_local(repo, monkeypatch):
             input2:
                 description: Input 2
                 required: false
+        outputs:
+            output1:
+                description: Output 1
+            output2:
+                description: Output 2
         """,
     )
     main(["add", "./my/actions/foo", "-v"])
@@ -35,7 +40,7 @@ def test_local(repo, monkeypatch):
     )
     lock.expect_diff(
         """\
-        @@ -0,0 +1,11 @@
+        @@ -0,0 +1,14 @@
         +actions:
         +- id: foo
         +  title: Foo
@@ -46,6 +51,9 @@ def test_local(repo, monkeypatch):
         +  - name: input2
         +    id: input2
         +    required: false
+        +  outputs:
+        +  - output1
+        +  - output2
         +  path: my/actions/foo
         """
     )
@@ -69,13 +77,14 @@ def test_local(repo, monkeypatch):
     )
     lock.expect_diff(
         """\
-        @@ -9,3 +9,7 @@
-             id: input2
-             required: false
+        @@ -12,3 +12,8 @@
+           - output1
+           - output2
            path: my/actions/foo
         +- id: my_bar
         +  title: My bar
         +  inputs: []
+        +  outputs: []
         +  path: my/actions/bar
         """
     )
@@ -100,9 +109,9 @@ def test_local(repo, monkeypatch):
     )
     lock.expect_diff(
         """\
-        @@ -13,3 +13,13 @@
-           title: My bar
+        @@ -17,3 +17,16 @@
            inputs: []
+           outputs: []
            path: my/actions/bar
         +- id: other
         +  title: Other
@@ -113,6 +122,9 @@ def test_local(repo, monkeypatch):
         +  - name: input2
         +    id: input2
         +    required: false
+        +  outputs:
+        +  - output1
+        +  - output2
         +  path: my/actions/foo
         """
     )
@@ -136,7 +148,7 @@ def test_local(repo, monkeypatch):
     )
     lock.expect_diff(
         """\
-        @@ -1,14 +1,4 @@
+        @@ -1,17 +1,4 @@
          actions:
         -- id: foo
         -  title: Foo
@@ -147,6 +159,9 @@ def test_local(repo, monkeypatch):
         -  - name: input2
         -    id: input2
         -    required: false
+        -  outputs:
+        -  - output1
+        -  - output2
         -  path: my/actions/foo
          - id: my_bar
            title: My bar
@@ -167,7 +182,7 @@ def test_local(repo, monkeypatch):
     config.expect_unchanged()
     lock.expect_diff(
         """\
-        @@ -6,10 +6,7 @@
+        @@ -7,13 +7,8 @@
          - id: other
            title: Other
            inputs:
@@ -179,6 +194,10 @@ def test_local(repo, monkeypatch):
         -  - name: input2
         -    id: input2
         -    required: false
+        -  outputs:
+        -  - output1
+        -  - output2
+        +  outputs: []
            path: my/actions/foo
         """
     )
@@ -284,7 +303,7 @@ def test_remote(repo, mock_gh_api_calls):
     )
     lock.expect_diff(
         """\
-        @@ -0,0 +1,16 @@
+        @@ -0,0 +1,17 @@
         +actions:
         +- id: repo
         +  title: Repo
@@ -295,6 +314,7 @@ def test_remote(repo, mock_gh_api_calls):
         +  - name: input2
         +    id: input2
         +    required: false
+        +  outputs: []
         +  owner: owner
         +  repo: repo
         +  path: ''
@@ -329,7 +349,7 @@ def test_remote(repo, mock_gh_api_calls):
     )
     lock.expect_diff(
         """\
-        @@ -1,4 +1,15 @@
+        @@ -1,4 +1,16 @@
          actions:
         +- id: foo
         +  title: Foo
@@ -337,6 +357,7 @@ def test_remote(repo, mock_gh_api_calls):
         +  - name: an_input
         +    id: an-input
         +    required: true
+        +  outputs: []
         +  owner: owner
         +  repo: foo
         +  path: ''
@@ -370,13 +391,14 @@ def test_remote(repo, mock_gh_api_calls):
     )
     lock.expect_diff(
         """\
-        @@ -25,3 +25,12 @@
+        @@ -27,3 +27,13 @@
            ref: v2
            resolved-ref: v2
            sha: this_is_a_sha
         +- id: repo_path_to_bar
         +  title: Repo path to bar
         +  inputs: []
+        +  outputs: []
         +  owner: owner
         +  repo: repo
         +  path: path/to/bar
@@ -408,13 +430,14 @@ def test_remote(repo, mock_gh_api_calls):
     )
     lock.expect_diff(
         """\
-        @@ -34,3 +34,12 @@
+        @@ -37,3 +37,13 @@
            ref: v1.0.0
            resolved-ref: v1.0.0
            sha: bar_sha
         +- id: x
         +  title: X
         +  inputs: []
+        +  outputs: []
         +  owner: owner
         +  repo: bar
         +  path: ''
@@ -442,7 +465,7 @@ def test_remote(repo, mock_gh_api_calls):
     config.expect_unchanged()
     lock.expect_diff(
         """\
-        @@ -8,8 +8,8 @@
+        @@ -9,8 +9,8 @@
            owner: owner
            repo: foo
            path: ''
@@ -470,13 +493,14 @@ def test_remote(repo, mock_gh_api_calls):
     )
     lock.expect_diff(
         """\
-        @@ -25,15 +25,6 @@
+        @@ -27,16 +27,6 @@
            ref: v2
            resolved-ref: v2
            sha: this_is_a_sha
         -- id: repo_path_to_bar
         -  title: Repo path to bar
         -  inputs: []
+        -  outputs: []
         -  owner: owner
         -  repo: repo
         -  path: path/to/bar
@@ -521,7 +545,7 @@ def test_remote(repo, mock_gh_api_calls):
     config.expect_unchanged()
     lock.expect_diff(
         """\
-        @@ -1,30 +1,21 @@
+        @@ -1,32 +1,23 @@
          actions:
          - id: foo
            title: Foo
@@ -530,6 +554,7 @@ def test_remote(repo, mock_gh_api_calls):
         -    id: an-input
         -    required: true
         +  inputs: []
+           outputs: []
            owner: owner
            repo: foo
            path: ''
@@ -547,6 +572,7 @@ def test_remote(repo, mock_gh_api_calls):
         -    id: input2
         -    required: false
         +  inputs: []
+           outputs: []
            owner: owner
            repo: repo
            path: ''
@@ -557,7 +583,7 @@ def test_remote(repo, mock_gh_api_calls):
          - id: x
            title: X
            inputs: []
-        @@ -33,4 +24,4 @@
+        @@ -36,4 +27,4 @@
            path: ''
            ref: main
            resolved-ref: main

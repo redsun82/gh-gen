@@ -367,7 +367,7 @@ class Step(Element):
     with_: dict[str, Value]
 
     # extensions
-    outputs: list[str]
+    outputs: dict[str, str]
     needs: list[str]
     comments: dict[str, str]
 

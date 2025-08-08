@@ -3,6 +3,7 @@ import contextlib
 import dataclasses
 import inspect
 import itertools
+import keyword
 import re
 import textwrap
 import types
@@ -13,6 +14,7 @@ import pathlib
 import inflection
 
 from .expr import (
+    DotExpr,
     Expr,
     on_error,
     ErrorExpr,
@@ -1137,6 +1139,13 @@ def _ensure_id(s: Step) -> str:
     return s.id
 
 
+def _make_id(id: str) -> str:
+    ret = id.replace("-", "_")
+    if keyword.iskeyword(ret):
+        ret += "_"
+    return ret
+
+
 @dataclass
 class _StepUpdater(ProxyExpr, _IdElementUpdater[Step]):
     def __init__(self, *args, **kwargs):
@@ -1171,7 +1180,7 @@ class _StepUpdater(ProxyExpr, _IdElementUpdater[Step]):
         if with_ is not None:
             ret.with_(with_)
         if outputs is not None:
-            ret.outputs(outputs)
+            ret.outputs(*outputs)
         return ret
 
     def _ensure(self):
@@ -1256,7 +1265,10 @@ class _StepUpdater(ProxyExpr, _IdElementUpdater[Step]):
 
         def __call__(self, *args: str, **kwargs: Value) -> "_StepUpdater":
             args += tuple(a for a in kwargs if a not in args)
-            ret = self._parent._update("outputs", _seq, args)
+            args = {_make_id(a): a for a in args}
+            ret = self._parent._update("outputs", _map, ((), args))
+            self._parent = ret
+
             # TODO: support other shells than bash
             if kwargs:
                 # TODO: handle quoting?
@@ -1274,7 +1286,12 @@ class _StepUpdater(ProxyExpr, _IdElementUpdater[Step]):
             return ret
 
         def _get_expr(self) -> Expr:
-            return self._parent._get_expr().outputs
+            ret = self._parent._get_expr().outputs
+            # ensure outputs get their original ids
+            for id, name in (self._parent._cached_element.outputs or {}).items():
+                if id != name:
+                    object.__setattr__(ret, id, DotExpr(ret, name))
+            return ret
 
     @property
     def outputs(self) -> _StepOutputs:

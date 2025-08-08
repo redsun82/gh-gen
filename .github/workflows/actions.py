@@ -50,7 +50,11 @@ def checkout(
         ("submodules", submodules),
         ("set-safe-directory", set_safe_directory),
         ("github-server-url", github_server_url),
-    )).name("Checkout").comment(uses="v4.2.2")
+    )).name(
+        "Checkout"
+    ).comment(
+        uses="v4.2.2"
+    )
 
 
 def pre_commit(
@@ -61,7 +65,11 @@ def pre_commit(
         "pre-commit/action@2c7b3805fd2a0fd8c1884dcaebf91fc102a13ecd"
     ).with_((
         ("extra_args", extra_args),
-    )).name("Check").comment(uses="v3.0.1")
+    )).name(
+        "Check"
+    ).comment(
+        uses="v3.0.1"
+    )
 
 
 def setup_uv(
@@ -106,4 +114,8 @@ def setup_uv(
         ("tool-dir", tool_dir),
         ("tool-bin-dir", tool_bin_dir),
         ("manifest-file", manifest_file),
-    )).name("Setup uv").comment(uses="v6.4.3")
+    )).name(
+        "Setup uv"
+    ).comment(
+        uses="v6.4.3"
+    )

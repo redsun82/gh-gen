@@ -198,7 +198,7 @@ class ContextBase(threading.local, RuleSet):
     ) -> bool:
         step = next(s for s in self.current_job.steps if s.id == id)
         return self.check(
-            step.outputs and step.outputs and output in step.outputs,
+            step.outputs and step.outputs and output in step.outputs.values(),
             f"`{output}` was not declared in step `{id}`, use `returns()` declare it",
         )
 
