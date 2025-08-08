@@ -122,6 +122,8 @@ class Action(ConfigElement):
             for id, input_data in action_data.get("inputs", {}).items()
         ]
         self.outputs = [*action_data.get("outputs", {})]
+        if self.name is None:
+            self.name = action_data.get("name")
 
 
 class LockData(ConfigElement):
@@ -256,7 +258,7 @@ def sync_lock_data(
             case UsesClause(uses=spec, name=name):
                 pass
             case str() as spec:
-                name = inflection.titleize(id).lower().capitalize()
+                name = None
             case _:
                 raise TypeError("malformed lock file")
         if not to_update(id):
@@ -266,7 +268,10 @@ def sync_lock_data(
         actions[id].name = name
         # TODO: async
         actions[id].fetch()
-        message = [f"{name}: "]
+        if actions[id].name is None:
+            # no name in original action source, derive from id
+            actions[id].name = inflection.titleize(id).lower().capitalize()
+        message = [f"{id}: "]
         if prev is None:
             message[0] += f"{actions[id].display_spec}"
         elif prev == actions[id]:

@@ -43,7 +43,7 @@ def test_local(repo, monkeypatch):
         @@ -0,0 +1,14 @@
         +actions:
         +- id: foo
-        +  name: Foo
+        +  name: Foo Action
         +  inputs:
         +  - name: input1
         +    id: input1
@@ -63,7 +63,7 @@ def test_local(repo, monkeypatch):
     repo.file(
         "my/actions/bar/action.yml",
         """\
-        name: Bar Action
+        run: {}
         """,
     )
     main(["add", "my_bar=./my/actions/bar", "-v"])
@@ -114,7 +114,7 @@ def test_local(repo, monkeypatch):
            outputs: []
            path: my/actions/bar
         +- id: other
-        +  name: Other
+        +  name: Foo Action
         +  inputs:
         +  - name: input1
         +    id: input1
@@ -151,7 +151,7 @@ def test_local(repo, monkeypatch):
         @@ -1,17 +1,4 @@
          actions:
         -- id: foo
-        -  name: Foo
+        -  name: Foo Action
         -  inputs:
         -  - name: input1
         -    id: input1
@@ -182,9 +182,12 @@ def test_local(repo, monkeypatch):
     config.expect_unchanged()
     lock.expect_diff(
         """\
-        @@ -7,13 +7,8 @@
+        @@ -5,15 +5,10 @@
+           outputs: []
+           path: my/actions/bar
          - id: other
-           name: Other
+        -  name: Foo Action
+        +  name: Foo Changed
            inputs:
         -  - name: input1
         -    id: input1
@@ -306,7 +309,7 @@ def test_remote(repo, mock_gh_api_calls):
         @@ -0,0 +1,17 @@
         +actions:
         +- id: repo
-        +  name: Repo
+        +  name: My Action
         +  inputs:
         +  - name: input1
         +    id: input1
@@ -352,7 +355,7 @@ def test_remote(repo, mock_gh_api_calls):
         @@ -1,4 +1,16 @@
          actions:
         +- id: foo
-        +  name: Foo
+        +  name: Foo Action
         +  inputs:
         +  - name: an_input
         +    id: an-input
@@ -364,7 +367,7 @@ def test_remote(repo, mock_gh_api_calls):
         +  resolved-ref: v3.2.1
         +  sha: another_sha
          - id: repo
-           name: Repo
+           name: My Action
            inputs:
         """
     )
@@ -396,7 +399,7 @@ def test_remote(repo, mock_gh_api_calls):
            resolved-ref: v2
            sha: this_is_a_sha
         +- id: repo_path_to_bar
-        +  name: Repo path to bar
+        +  name: Bar Action
         +  inputs: []
         +  outputs: []
         +  owner: owner
@@ -435,7 +438,7 @@ def test_remote(repo, mock_gh_api_calls):
            resolved-ref: v1.0.0
            sha: bar_sha
         +- id: x
-        +  name: X
+        +  name: Branch Action
         +  inputs: []
         +  outputs: []
         +  owner: owner
@@ -474,7 +477,7 @@ def test_remote(repo, mock_gh_api_calls):
         +  resolved-ref: v3.3.3
         +  sha: updated_sha
          - id: repo
-           name: Repo
+           name: My Action
            inputs:
         """
     )
@@ -498,7 +501,7 @@ def test_remote(repo, mock_gh_api_calls):
            resolved-ref: v2
            sha: this_is_a_sha
         -- id: repo_path_to_bar
-        -  name: Repo path to bar
+        -  name: Bar Action
         -  inputs: []
         -  outputs: []
         -  owner: owner
@@ -508,7 +511,7 @@ def test_remote(repo, mock_gh_api_calls):
         -  resolved-ref: v1.0.0
         -  sha: bar_sha
          - id: x
-           name: X
+           name: Branch Action
            inputs: []
         """
     )
@@ -545,10 +548,10 @@ def test_remote(repo, mock_gh_api_calls):
     config.expect_unchanged()
     lock.expect_diff(
         """\
-        @@ -1,32 +1,23 @@
+        @@ -1,34 +1,25 @@
          actions:
          - id: foo
-           name: Foo
+           name: Foo Action
         -  inputs:
         -  - name: an_input
         -    id: an-input
@@ -563,7 +566,7 @@ def test_remote(repo, mock_gh_api_calls):
         +  resolved-ref: v4.2.1
         +  sha: updated_sha_foo
          - id: repo
-           name: Repo
+        -  name: My Action
         -  inputs:
         -  - name: input1
         -    id: input1
@@ -571,6 +574,7 @@ def test_remote(repo, mock_gh_api_calls):
         -  - name: input2
         -    id: input2
         -    required: false
+        +  name: Repo Action
         +  inputs: []
            outputs: []
            owner: owner
@@ -581,8 +585,11 @@ def test_remote(repo, mock_gh_api_calls):
         -  sha: this_is_a_sha
         +  sha: updated_sha_repo
          - id: x
-           name: X
+        -  name: Branch Action
+        +  name: Bar Action
            inputs: []
+           outputs: []
+           owner: owner
         @@ -36,4 +27,4 @@
            path: ''
            ref: main
