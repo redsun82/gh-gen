@@ -1,0 +1,11 @@
+#!/bin/bash
+
+set -euo pipefail
+
+if ! which uv &> /dev/null; then
+    echo "$0 requires `uv`, see https://github.com/astral-sh/uv?tab=readme-ov-file#installation for how to install it" >2
+    exit 1
+fi
+
+exec -a "$0" uv --project "$(dirname "$0")" run gh-gen "$@"
+
