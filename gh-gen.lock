@@ -1,5 +1,5 @@
 actions:
-- name: checkout
+- id: checkout
   title: Checkout
   inputs:
   - name: repository
@@ -48,7 +48,7 @@ actions:
   path: ''
   resolved-ref: v4.2.2
   sha: 11bd71901bbe5b1630ceea73d27597364c9af683
-- name: pre_commit
+- id: pre_commit
   title: Check
   inputs:
   - name: extra_args
@@ -59,11 +59,13 @@ actions:
   path: ''
   resolved-ref: v3.0.1
   sha: 2c7b3805fd2a0fd8c1884dcaebf91fc102a13ecd
-- name: setup_uv
+- id: setup_uv
   title: Setup uv
   inputs:
   - name: version
     id: version
+  - name: version_file
+    id: version-file
   - name: python_version
     id: python-version
     required: false
@@ -107,5 +109,5 @@ actions:
   owner: astral-sh
   repo: setup-uv
   path: ''
-  resolved-ref: v6.3.1
-  sha: bd01e18f51369d5a26f1651c3cb451d3417e3bba
+  resolved-ref: v6.4.3
+  sha: e92bafb6253dcd438e0484186d7669ea7a8ca1cc

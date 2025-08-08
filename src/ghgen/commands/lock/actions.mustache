@@ -2,11 +2,18 @@
 # fmt: off
 
 from ghgen.ctx import uses
-import inflection
 {{#actions}}
 
-def {{name}}(*{{#inputs}}, {{name}}: str{{^required}} | None = None{{/required}}{{/inputs}}):
-    return uses("{{{resolved_spec}}}").with_((
+
+def {{id}}(
+    *,
+    {{#inputs}}
+    {{name}}: str{{^required}} | None = None{{/required}},
+    {{/inputs}}
+):
+    return uses(
+        "{{{resolved_spec}}}"
+    ).with_((
         {{#inputs}}
         ("{{id}}", {{name}}),
         {{/inputs}}

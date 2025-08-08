@@ -2,10 +2,34 @@
 # fmt: off
 
 from ghgen.ctx import uses
-import inflection
 
-def checkout(*, repository: str | None = None, ref: str | None = None, token: str | None = None, ssh_key: str | None = None, ssh_known_hosts: str | None = None, ssh_strict: str | None = None, ssh_user: str | None = None, persist_credentials: str | None = None, path: str | None = None, clean: str | None = None, filter: str | None = None, sparse_checkout: str | None = None, sparse_checkout_cone_mode: str | None = None, fetch_depth: str | None = None, fetch_tags: str | None = None, show_progress: str | None = None, lfs: str | None = None, submodules: str | None = None, set_safe_directory: str | None = None, github_server_url: str | None = None):
-    return uses("actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683").with_((
+
+def checkout(
+    *,
+    repository: str | None = None,
+    ref: str | None = None,
+    token: str | None = None,
+    ssh_key: str | None = None,
+    ssh_known_hosts: str | None = None,
+    ssh_strict: str | None = None,
+    ssh_user: str | None = None,
+    persist_credentials: str | None = None,
+    path: str | None = None,
+    clean: str | None = None,
+    filter: str | None = None,
+    sparse_checkout: str | None = None,
+    sparse_checkout_cone_mode: str | None = None,
+    fetch_depth: str | None = None,
+    fetch_tags: str | None = None,
+    show_progress: str | None = None,
+    lfs: str | None = None,
+    submodules: str | None = None,
+    set_safe_directory: str | None = None,
+    github_server_url: str | None = None,
+):
+    return uses(
+        "actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683"
+    ).with_((
         ("repository", repository),
         ("ref", ref),
         ("token", token),
@@ -28,14 +52,44 @@ def checkout(*, repository: str | None = None, ref: str | None = None, token: st
         ("github-server-url", github_server_url),
     )).name("Checkout").comment(uses="v4.2.2")
 
-def pre_commit(*, extra_args: str | None = None):
-    return uses("pre-commit/action@2c7b3805fd2a0fd8c1884dcaebf91fc102a13ecd").with_((
+
+def pre_commit(
+    *,
+    extra_args: str | None = None,
+):
+    return uses(
+        "pre-commit/action@2c7b3805fd2a0fd8c1884dcaebf91fc102a13ecd"
+    ).with_((
         ("extra_args", extra_args),
     )).name("Check").comment(uses="v3.0.1")
 
-def setup_uv(*, version: str | None = None, python_version: str | None = None, activate_environment: str | None = None, working_directory: str | None = None, checksum: str | None = None, server_url: str | None = None, github_token: str | None = None, enable_cache: str | None = None, cache_dependency_glob: str | None = None, cache_suffix: str | None = None, cache_local_path: str | None = None, prune_cache: str | None = None, ignore_nothing_to_cache: str | None = None, ignore_empty_workdir: str | None = None, tool_dir: str | None = None, tool_bin_dir: str | None = None, manifest_file: str | None = None):
-    return uses("astral-sh/setup-uv@bd01e18f51369d5a26f1651c3cb451d3417e3bba").with_((
+
+def setup_uv(
+    *,
+    version: str | None = None,
+    version_file: str | None = None,
+    python_version: str | None = None,
+    activate_environment: str | None = None,
+    working_directory: str | None = None,
+    checksum: str | None = None,
+    server_url: str | None = None,
+    github_token: str | None = None,
+    enable_cache: str | None = None,
+    cache_dependency_glob: str | None = None,
+    cache_suffix: str | None = None,
+    cache_local_path: str | None = None,
+    prune_cache: str | None = None,
+    ignore_nothing_to_cache: str | None = None,
+    ignore_empty_workdir: str | None = None,
+    tool_dir: str | None = None,
+    tool_bin_dir: str | None = None,
+    manifest_file: str | None = None,
+):
+    return uses(
+        "astral-sh/setup-uv@e92bafb6253dcd438e0484186d7669ea7a8ca1cc"
+    ).with_((
         ("version", version),
+        ("version-file", version_file),
         ("python-version", python_version),
         ("activate-environment", activate_environment),
         ("working-directory", working_directory),
@@ -52,4 +106,4 @@ def setup_uv(*, version: str | None = None, python_version: str | None = None, a
         ("tool-dir", tool_dir),
         ("tool-bin-dir", tool_bin_dir),
         ("manifest-file", manifest_file),
-    )).name("Setup uv").comment(uses="v6.3.1")
+    )).name("Setup uv").comment(uses="v6.4.3")

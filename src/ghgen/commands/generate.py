@@ -62,7 +62,7 @@ def run(opts: argparse.Namespace):
         logging.debug(f"@ {i}")
         for f in i.glob("*.py"):
             logging.debug(f"← {f}")
-            spec = importlib.util.spec_from_file_location(f.id, str(f))
+            spec = importlib.util.spec_from_file_location(f.name, str(f))
             mod = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(mod)
             for k, v in mod.__dict__.items():

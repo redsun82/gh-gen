@@ -292,8 +292,7 @@ def _ensure_element(start: Workflow | Job, path: tuple[str | int, ...]) -> typin
 
 
 def _get_workflow(path: str) -> Workflow:
-    if not isinstance(path, str):
-        raise ValueError("PROUT")
+    assert isinstance(path, str)
     if _ctx.current_workflow is None or _ctx.current_job is not None:
         _ctx.error(f"`{path}` must be used in a workflow")
         return Workflow()
