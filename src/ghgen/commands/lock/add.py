@@ -11,8 +11,8 @@ def add_arguments(parser: argparse.ArgumentParser):
     parser.add_argument(
         "actions",
         type=str,
-        help="The action to add as a dependency (e.g., `actions/checkout@v2`)",
-        nargs="*",
+        help="The action(s) to add as a dependency (e.g., `actions/checkout@v2`)",
+        nargs="+",
         metavar="[id=](owner/repo[/path][@ref] | ./path)",
     )
     parser.add_argument(

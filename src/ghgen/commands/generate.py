@@ -9,6 +9,7 @@ from ruamel.yaml import CommentedMap
 
 from ..ctx import WorkflowInfo, GenerationError
 from .utils import DiffError, yaml
+from .lock.sync import run as sync
 
 aliases = ["g", "gen"]
 help = "generate worklows"
@@ -53,6 +54,7 @@ def generate_workflow(
 
 
 def run(opts: argparse.Namespace):
+    sync(opts)
     sys.path.extend(map(str, opts.includes))
     sys.modules["ghgen"] = sys.modules[__name__]
     inputs = opts.inputs or opts.includes

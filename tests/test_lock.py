@@ -131,7 +131,7 @@ def test_local(repo, monkeypatch):
 
     # lock regenerated
     lock.path.unlink()
-    main(["add", "-v"])
+    main(["sync", "-v"])
     config.expect_unchanged()
     lock.expect_unchanged()
 
