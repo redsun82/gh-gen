@@ -52,6 +52,7 @@ actions:
   resolved-ref: v4.2.2
   sha: 11bd71901bbe5b1630ceea73d27597364c9af683
 - id: pre_commit
+  requested-name: Check
   name: Check
   inputs:
   - name: extra_args
@@ -64,6 +65,7 @@ actions:
   resolved-ref: v3.0.1
   sha: 2c7b3805fd2a0fd8c1884dcaebf91fc102a13ecd
 - id: setup_uv
+  requested-name: Setup uv
   name: Setup uv
   inputs:
   - name: version

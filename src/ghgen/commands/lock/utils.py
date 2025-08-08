@@ -35,6 +35,7 @@ def is_valid_id(id: str) -> bool:
 
 class Action(ConfigElement):
     id: str
+    requested_name: str
     name: str
     inputs: list[ActionInput]
     outputs: list[str]
@@ -64,8 +65,8 @@ class Action(ConfigElement):
         return bool(self.outputs)
 
     @staticmethod
-    def from_spec(action: str) -> "Action":
-        """Parse an action string into its name and optional version."""
+    def from_spec(action: str, **kwargs) -> "Action":
+        """Parse an action string into its id and optional version."""
         id = None
         version = None
         spec = action
@@ -92,7 +93,9 @@ class Action(ConfigElement):
                 )
             case [".", head, *tail] if version is None:
                 return LocalAction(
-                    id=id or _make_id(tail[-1]), path=f"{head}/{'/'.join(tail)}"
+                    id=id or _make_id(tail[-1]),
+                    path=f"{head}/{'/'.join(tail)}",
+                    **kwargs,
                 )
             case ["", *_] | [_, "", *_]:
                 raise ValueError(
@@ -105,6 +108,7 @@ class Action(ConfigElement):
                     repo=repo,
                     path="/".join(path),
                     ref=version or None,
+                    **kwargs,
                 )
             case _:
                 raise ValueError(
@@ -122,8 +126,13 @@ class Action(ConfigElement):
             for id, input_data in action_data.get("inputs", {}).items()
         ]
         self.outputs = [*action_data.get("outputs", {})]
-        if self.name is None:
-            self.name = action_data.get("name")
+        if self.requested_name is not None:
+            self.name = self.requested_name
+        elif "name" in action_data:
+            self.name = action_data["name"]
+        else:
+            # no name in original action source, derive from id
+            self.name = inflection.titleize(self.id).lower().capitalize()
 
 
 class LockData(ConfigElement):
@@ -233,6 +242,12 @@ class RemoteAction(Action):
             self.sha = self.resolved_ref
 
 
+class ActionDescription(typing.NamedTuple):
+    id: str
+    spec: str
+    name: str | None = None
+
+
 def sync_lock_data(
     args: argparse.Namespace,
     actions_to_update: list[str] | typing.Literal["all", "changed"] = "changed",
@@ -242,35 +257,40 @@ def sync_lock_data(
     lock_data = load(LockData, lock_file)
     actions = {a.id: a for a in lock_data.actions}
     for id in list(actions):
-        if id not in uses:
-            del actions[id]
+        uses.setdefault(id, None)
+    to_update: typing.Callable[[Action | None, Action], bool]
     match actions_to_update:
         case list():
-            to_update = lambda id: id in actions_to_update
+            to_update = (
+                lambda prev, new: new is not None and new.id in actions_to_update
+            )
         case "all":
-            to_update = lambda id: True
+            to_update = lambda prev, new: True
         case "changed":
-            to_update = lambda id: id not in actions or actions[id].spec != spec
+            to_update = lambda prev, new: prev != new
         case _:
             assert False, "actions_to_update must be a list, 'all', or 'changed'"
     for id, u in uses.items():
         match u:
             case UsesClause(uses=spec, name=name):
-                pass
+                new = ActionDescription(id, spec, name)
             case str() as spec:
-                name = None
+                new = ActionDescription(id, spec, None)
+            case None:
+                new = None
             case _:
                 raise TypeError("malformed lock file")
-        if not to_update(id):
-            continue
         prev = actions.get(id)
-        actions[id] = Action.from_spec(f"{id}={spec}")
-        actions[id].name = name
+        prev_desc = prev and ActionDescription(prev.id, prev.spec, prev.requested_name)
+        if not to_update(prev_desc, new):
+            continue
+        if new is None:
+            del actions[id]
+            continue
+        actions[id] = Action.from_spec(f"{new.id}={new.spec}", requested_name=new.name)
         # TODO: async
         actions[id].fetch()
-        if actions[id].name is None:
-            # no name in original action source, derive from id
-            actions[id].name = inflection.titleize(id).lower().capitalize()
+
         message = [f"{id}: "]
         if prev is None:
             message[0] += f"{actions[id].display_spec}"
