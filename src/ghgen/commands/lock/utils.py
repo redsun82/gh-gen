@@ -12,7 +12,7 @@ import keyword
 
 from ...element import ConfigElement
 from ..utils import yaml, project_dir, load, dump
-from ...config import UsesClause
+from ..config import UsesClause
 
 
 class ActionInput(ConfigElement):

@@ -1,6 +1,6 @@
 import pathlib
 
-from .element import ConfigElement
+from ..element import ConfigElement
 
 
 class UsesClause(ConfigElement):

@@ -4,11 +4,11 @@ import typing
 import pathlib
 import colorlog
 
-from .config import Config
 from .ctx import WorkflowInfo, GenerationError
 from .commands import commands
 from .commands.generate import run as generate
 from .commands.utils import relativized_path, project_dir, load, config_file
+from .commands.config import Config
 
 
 def discover_workflows_dir() -> pathlib.Path:
