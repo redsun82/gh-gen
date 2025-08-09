@@ -34,6 +34,8 @@ def is_valid_id(id: str) -> bool:
 
 
 class Action(ConfigElement):
+    pinned: typing.ClassVar[bool] = False
+
     id: str
     requested_name: str
     name: str
@@ -92,6 +94,7 @@ class Action(ConfigElement):
                     f"Invalid action specification: {action} (path required)"
                 )
             case [".", head, *tail] if version is None:
+                kwargs.pop("pinned", None)
                 return LocalAction(
                     id=id or _make_id(tail[-1]),
                     path=f"{head}/{'/'.join(tail)}",
@@ -163,6 +166,7 @@ class RemoteAction(Action):
     ref: str
     resolved_ref: str
     sha: str
+    pinned: bool = True
 
     @property
     def spec(self) -> str:
@@ -170,7 +174,9 @@ class RemoteAction(Action):
 
     @property
     def resolved_spec(self) -> str:
-        return f"{self.unversioned_spec}@{self.sha}"
+        return (
+            f"{self.unversioned_spec}@{self.sha if self.pinned else self.resolved_ref}"
+        )
 
     @property
     def unversioned_spec(self) -> str:
@@ -178,7 +184,7 @@ class RemoteAction(Action):
 
     @property
     def display_spec(self) -> str:
-        if self.resolved_ref != self.sha:
+        if self.pinned and self.resolved_ref != self.sha:
             return f"{self.resolved_spec} ({self.resolved_ref})"
         else:
             return self.resolved_spec
@@ -228,24 +234,26 @@ class RemoteAction(Action):
         )
         with self._gh_api("application/vnd.github.v3.raw", address) as out:
             self._load(out)
-        for kind in ("tags", "heads"):
-            try:
-                self.sha = self._gh_api_jq(
-                    f"git/ref/{kind}/{self.resolved_ref}",
-                    ".object.sha",
-                    stderr=subprocess.DEVNULL,
-                )
-                break
-            except subprocess.CalledProcessError:
-                pass
-        else:
-            self.sha = self.resolved_ref
+        if self.pinned:
+            for kind in ("tags", "heads"):
+                try:
+                    self.sha = self._gh_api_jq(
+                        f"git/ref/{kind}/{self.resolved_ref}",
+                        ".object.sha",
+                        stderr=subprocess.DEVNULL,
+                    )
+                    break
+                except subprocess.CalledProcessError:
+                    pass
+            else:
+                self.sha = self.resolved_ref
 
 
 class ActionDescription(typing.NamedTuple):
     id: str
     spec: str
     name: str | None = None
+    pin: bool = True
 
 
 def sync_lock_data(
@@ -272,22 +280,26 @@ def sync_lock_data(
             assert False, "actions_to_update must be a list, 'all', or 'changed'"
     for id, u in uses.items():
         match u:
-            case UsesClause(uses=spec, name=name):
-                new = ActionDescription(id, spec, name)
+            case UsesClause(uses=spec, name=name, pin=pin):
+                new = ActionDescription(id, spec, name, pin)
             case str() as spec:
-                new = ActionDescription(id, spec, None)
+                new = ActionDescription(id, spec)
             case None:
                 new = None
             case _:
                 raise TypeError("malformed lock file")
         prev = actions.get(id)
-        prev_desc = prev and ActionDescription(prev.id, prev.spec, prev.requested_name)
+        prev_desc = prev and ActionDescription(
+            prev.id, prev.spec, prev.requested_name, prev.pinned
+        )
         if not to_update(prev_desc, new):
             continue
         if new is None:
             del actions[id]
             continue
-        actions[id] = Action.from_spec(f"{new.id}={new.spec}", requested_name=new.name)
+        actions[id] = Action.from_spec(
+            f"{new.id}={new.spec}", requested_name=new.name, pinned=new.pin
+        )
         # TODO: async
         actions[id].fetch()
 

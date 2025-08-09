@@ -1,5 +1,7 @@
 uses:
-  checkout: actions/checkout
+  checkout:
+    uses: actions/checkout@v4
+    pin: false
   setup_uv:
     uses: astral-sh/setup-uv
     name: Setup uv

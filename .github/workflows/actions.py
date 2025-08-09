@@ -28,7 +28,7 @@ def checkout(
     github_server_url: str | None = None,
 ):
     return uses(
-        "actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683"
+        "actions/checkout@v4"
     ).with_((
         ("repository", repository),
         ("ref", ref),
@@ -53,7 +53,7 @@ def checkout(
     )).name(
         "Checkout"
     ).comment(
-        uses="v4.2.2"
+        uses="v4"
     ).outputs(
         "ref",
         "commit",

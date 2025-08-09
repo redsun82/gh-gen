@@ -6,6 +6,7 @@ from ..element import ConfigElement
 class UsesClause(ConfigElement):
     uses: str
     name: str
+    pin: bool = True
 
 
 class Config(ConfigElement):

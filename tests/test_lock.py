@@ -227,14 +227,14 @@ class MockedGhApi:
 
     def add(
         self,
-        target,
-        version,
-        sha,
-        contents,
+        target: str,
+        version: str,
+        sha: str | None,
+        contents: str,
         *,
-        as_latest=False,
-        as_branch=False,
-        path=None,
+        as_latest: bool = False,
+        as_branch: bool = False,
+        path: str | None = None,
     ):
         path_to_action = "action.yml" if path is None else f"{path}/action.yml"
         if as_latest:
@@ -254,15 +254,16 @@ class MockedGhApi:
             "Accept: application/vnd.github.v3.raw",
             f"repos/{target}/contents/{path_to_action}?ref={version}",
         ] = textwrap.dedent(contents)
-        self.calls[
-            "gh",
-            "api",
-            "-H",
-            "Accept: application/vnd.github+json",
-            f"repos/{target}/git/ref/{'heads' if as_branch else 'tags'}/{version}",
-            "--jq",
-            ".object.sha",
-        ] = f"{sha}\n"
+        if sha is not None:
+            self.calls[
+                "gh",
+                "api",
+                "-H",
+                "Accept: application/vnd.github+json",
+                f"repos/{target}/git/ref/{'heads' if as_branch else 'tags'}/{version}",
+                "--jq",
+                ".object.sha",
+            ] = f"{sha}\n"
 
     def clear(self):
         self.calls.clear()
@@ -305,9 +306,10 @@ def test_remote(repo, mock_gh_api_calls):
     )
     lock.expect_diff(
         """\
-        @@ -0,0 +1,17 @@
+        @@ -0,0 +1,18 @@
         +actions:
-        +- id: repo
+        +- pinned: true
+        +  id: repo
         +  name: My Action
         +  inputs:
         +  - name: input1
@@ -351,9 +353,10 @@ def test_remote(repo, mock_gh_api_calls):
     )
     lock.expect_diff(
         """\
-        @@ -1,4 +1,16 @@
+        @@ -1,4 +1,17 @@
          actions:
-        +- id: foo
+        +- pinned: true
+        +  id: foo
         +  name: Foo Action
         +  inputs:
         +  - name: an_input
@@ -365,9 +368,9 @@ def test_remote(repo, mock_gh_api_calls):
         +  path: ''
         +  resolved-ref: v3.2.1
         +  sha: another_sha
-         - id: repo
+         - pinned: true
+           id: repo
            name: My Action
-           inputs:
         """
     )
 
@@ -393,11 +396,12 @@ def test_remote(repo, mock_gh_api_calls):
     )
     lock.expect_diff(
         """\
-        @@ -27,3 +27,13 @@
+        @@ -29,3 +29,14 @@
            ref: v2
            resolved-ref: v2
            sha: this_is_a_sha
-        +- id: repo_path_to_bar
+        +- pinned: true
+        +  id: repo_path_to_bar
         +  name: Bar Action
         +  inputs: []
         +  outputs: []
@@ -432,11 +436,12 @@ def test_remote(repo, mock_gh_api_calls):
     )
     lock.expect_diff(
         """\
-        @@ -37,3 +37,13 @@
+        @@ -40,3 +40,14 @@
            ref: v1.0.0
            resolved-ref: v1.0.0
            sha: bar_sha
-        +- id: x
+        +- pinned: true
+        +  id: x
         +  name: Branch Action
         +  inputs: []
         +  outputs: []
@@ -467,7 +472,7 @@ def test_remote(repo, mock_gh_api_calls):
     config.expect_unchanged()
     lock.expect_diff(
         """\
-        @@ -9,8 +9,8 @@
+        @@ -10,8 +10,8 @@
            owner: owner
            repo: foo
            path: ''
@@ -475,9 +480,9 @@ def test_remote(repo, mock_gh_api_calls):
         -  sha: another_sha
         +  resolved-ref: v3.3.3
         +  sha: updated_sha
-         - id: repo
+         - pinned: true
+           id: repo
            name: My Action
-           inputs:
         """
     )
 
@@ -495,11 +500,11 @@ def test_remote(repo, mock_gh_api_calls):
     )
     lock.expect_diff(
         """\
-        @@ -27,16 +27,6 @@
-           ref: v2
+        @@ -30,17 +30,6 @@
            resolved-ref: v2
            sha: this_is_a_sha
-        -- id: repo_path_to_bar
+         - pinned: true
+        -  id: repo_path_to_bar
         -  name: Bar Action
         -  inputs: []
         -  outputs: []
@@ -509,7 +514,8 @@ def test_remote(repo, mock_gh_api_calls):
         -  ref: v1.0.0
         -  resolved-ref: v1.0.0
         -  sha: bar_sha
-         - id: x
+        -- pinned: true
+           id: x
            name: Branch Action
            inputs: []
         """
@@ -547,9 +553,9 @@ def test_remote(repo, mock_gh_api_calls):
     config.expect_unchanged()
     lock.expect_diff(
         """\
-        @@ -1,34 +1,25 @@
-         actions:
-         - id: foo
+        @@ -2,36 +2,27 @@
+         - pinned: true
+           id: foo
            name: Foo Action
         -  inputs:
         -  - name: an_input
@@ -564,7 +570,8 @@ def test_remote(repo, mock_gh_api_calls):
         -  sha: updated_sha
         +  resolved-ref: v4.2.1
         +  sha: updated_sha_foo
-         - id: repo
+         - pinned: true
+           id: repo
         -  name: My Action
         -  inputs:
         -  - name: input1
@@ -583,18 +590,58 @@ def test_remote(repo, mock_gh_api_calls):
            resolved-ref: v2
         -  sha: this_is_a_sha
         +  sha: updated_sha_repo
-         - id: x
+         - pinned: true
+           id: x
         -  name: Branch Action
         +  name: Bar Action
            inputs: []
            outputs: []
            owner: owner
-        @@ -36,4 +27,4 @@
+        @@ -39,4 +30,4 @@
            path: ''
            ref: main
            resolved-ref: main
         -  sha: branch_sha
         +  sha: updated_sha_bar
+        """
+    )
+    mock_gh_api_calls(
+        "owner/baz",
+        "v2",
+        None,
+        """\
+        name: Baz Action
+        """,
+    )
+    main(["add", "owner/baz@v2", "--no-pin", "-v"])
+    config.expect_diff(
+        """\
+        @@ -2,3 +2,6 @@
+           repo: owner/repo@v2
+           foo: owner/foo
+           x: owner/bar@main
+        +  baz:
+        +    uses: owner/baz@v2
+        +    pin: false
+        """
+    )
+    lock.expect_diff(
+        """\
+        @@ -1,4 +1,14 @@
+         actions:
+        +- pinned: false
+        +  id: baz
+        +  name: Baz Action
+        +  inputs: []
+        +  outputs: []
+        +  owner: owner
+        +  repo: baz
+        +  path: ''
+        +  ref: v2
+        +  resolved-ref: v2
+         - pinned: true
+           id: foo
+           name: Foo Action
         """
     )
 
@@ -630,14 +677,15 @@ def test_sync(repo, mock_gh_api_calls):
     config.expect_unchanged()
     lock.expect_diff(
         """\
-        @@ -0,0 +1,19 @@
+        @@ -0,0 +1,20 @@
         +actions:
         +- id: bar
         +  name: Bar Action
         +  inputs: []
         +  outputs: []
         +  path: my/bar
-        +- id: foo
+        +- pinned: true
+        +  id: foo
         +  name: Foo Action
         +  inputs:
         +  - name: input
@@ -694,9 +742,9 @@ def test_sync(repo, mock_gh_api_calls):
         -  inputs: []
         -  outputs: []
         -  path: my/bar
-         - id: foo
+         - pinned: true
+           id: foo
            name: Foo Action
-           inputs:
         """
     )
     config.write(
@@ -721,7 +769,7 @@ def test_sync(repo, mock_gh_api_calls):
     config.expect_unchanged()
     lock.expect_diff(
         """\
-        @@ -5,10 +5,12 @@
+        @@ -6,10 +6,12 @@
            - name: input
              id: input
              required: true

@@ -21,6 +21,12 @@ def add_arguments(parser: argparse.ArgumentParser):
         help="The name to give to the generated steps. The action's own name is used by default",
     )
     parser.add_argument(
+        "--pin",
+        help="Pin the action to a specific commit (true by default)",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+    )
+    parser.add_argument(
         "--yes",
         "-y",
         action="store_true",
@@ -55,7 +61,13 @@ def run(args: argparse.Namespace):
     actions = list(map(Action.from_spec, args.actions))
     uses = args.config.yaml.setdefault("uses", {})
     for a in actions:
-        clause = dict(uses=a.spec, name=args.name) if args.name else a.spec
+        clause: dict[str, str | bool] | str = (
+            dict(uses=a.spec) if args.name or not args.pin else a.spec
+        )
+        if args.name:
+            clause["name"] = args.name
+        if not args.pin:
+            clause["pin"] = False
         if a.id in uses:
             if uses[a.id] == clause:
                 print(
