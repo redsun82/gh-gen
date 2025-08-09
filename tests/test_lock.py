@@ -279,7 +279,6 @@ def mock_gh_api_calls(monkeypatch):
 
 def test_remote(repo, mock_gh_api_calls):
     config = repo.config()
-    print("repo", repo.path)
     lock = repo.lock()
     mock_gh_api_calls(
         "owner/repo",
@@ -596,5 +595,147 @@ def test_remote(repo, mock_gh_api_calls):
            resolved-ref: main
         -  sha: branch_sha
         +  sha: updated_sha_bar
+        """
+    )
+
+
+def test_sync(repo, mock_gh_api_calls):
+    config = repo.config(
+        """\
+        uses:
+            foo: owner/foo@v2
+            bar: ./my/bar
+        """
+    )
+    lock = repo.lock()
+    repo.file(
+        "my/bar/action.yml",
+        """\
+        name: Bar Action
+        """,
+    )
+    mock_gh_api_calls(
+        "owner/foo",
+        "v2",
+        "foo_sha",
+        """\
+        name: Foo Action
+        inputs:
+            input:
+                description: Input
+                required: true
+        """,
+    )
+    main(["sync", "-v"])
+    config.expect_unchanged()
+    lock.expect_diff(
+        """\
+        @@ -0,0 +1,19 @@
+        +actions:
+        +- id: bar
+        +  name: Bar Action
+        +  inputs: []
+        +  outputs: []
+        +  path: my/bar
+        +- id: foo
+        +  name: Foo Action
+        +  inputs:
+        +  - name: input
+        +    id: input
+        +    required: true
+        +  outputs: []
+        +  owner: owner
+        +  repo: foo
+        +  path: ''
+        +  ref: v2
+        +  resolved-ref: v2
+        +  sha: foo_sha
+        """
+    )
+    config.write(
+        """\
+        uses:
+            foo: owner/foo@v2
+            bar:
+             uses: ./my/bar
+             name: Bar
+        """
+    )
+    main(["sync", "-v"])
+    config.expect_unchanged()
+    lock.expect_diff(
+        """\
+        @@ -1,6 +1,7 @@
+         actions:
+         - id: bar
+        -  name: Bar Action
+        +  requested-name: Bar
+        +  name: Bar
+           inputs: []
+           outputs: []
+           path: my/bar
+        """
+    )
+    config.write(
+        """\
+        uses:
+            foo: owner/foo@v2
+        """
+    )
+    main(["sync", "-v"])
+    config.expect_unchanged()
+    lock.expect_diff(
+        """\
+        @@ -1,10 +1,4 @@
+         actions:
+        -- id: bar
+        -  requested-name: Bar
+        -  name: Bar
+        -  inputs: []
+        -  outputs: []
+        -  path: my/bar
+         - id: foo
+           name: Foo Action
+           inputs:
+        """
+    )
+    config.write(
+        """\
+        uses:
+            foo: owner/foo@v3
+        """
+    )
+    mock_gh_api_calls(
+        "owner/foo",
+        "v3",
+        "foo_sha_v3",
+        """\
+        name: Foo Action
+        inputs:
+            input:
+                required: true
+            another-input: {}
+        """,
+    )
+    main(["sync", "-v"])
+    config.expect_unchanged()
+    lock.expect_diff(
+        """\
+        @@ -5,10 +5,12 @@
+           - name: input
+             id: input
+             required: true
+        +  - name: another_input
+        +    id: another-input
+           outputs: []
+           owner: owner
+           repo: foo
+           path: ''
+        -  ref: v2
+        -  resolved-ref: v2
+        -  sha: foo_sha
+        +  ref: v3
+        +  resolved-ref: v3
+        +  sha: foo_sha_v3
         """
     )
