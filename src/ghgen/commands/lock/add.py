@@ -22,9 +22,10 @@ def add_arguments(parser: argparse.ArgumentParser):
     )
     parser.add_argument(
         "--pin",
-        help="Pin the action to a specific commit (true by default)",
+        help="Pin the action to a specific commit "
+        "(true by default unless the owner is listed in `trusted-owners` in the configuration)",
         action=argparse.BooleanOptionalAction,
-        default=True,
+        default=None,
     )
     parser.add_argument(
         "--yes",

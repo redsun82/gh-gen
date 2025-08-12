@@ -252,8 +252,8 @@ class RemoteAction(Action):
 class ActionDescription(typing.NamedTuple):
     id: str
     spec: str
+    pin: bool
     name: str | None = None
-    pin: bool = True
 
 
 def sync_lock_data(
@@ -278,19 +278,29 @@ def sync_lock_data(
             to_update = lambda prev, new: prev != new
         case _:
             assert False, "actions_to_update must be a list, 'all', or 'changed'"
+
+    def get_pinned_value(request: bool | None, spec: str) -> bool:
+        if request is not None:
+            return request
+        owner, _, _ = spec.partition("/")
+        return not owner in args.config.trusted_owners
+
     for id, u in uses.items():
         match u:
             case UsesClause(uses=spec, name=name, pin=pin):
-                new = ActionDescription(id, spec, name, pin)
+                new = ActionDescription(id, spec, get_pinned_value(pin, spec), name)
             case str() as spec:
-                new = ActionDescription(id, spec)
+                new = ActionDescription(id, spec, get_pinned_value(None, spec))
             case None:
                 new = None
             case _:
                 raise TypeError("malformed lock file")
         prev = actions.get(id)
         prev_desc = prev and ActionDescription(
-            prev.id, prev.spec, prev.requested_name, prev.pinned
+            prev.id,
+            prev.spec,
+            prev.pinned,
+            prev.requested_name,
         )
         if not to_update(prev_desc, new):
             continue
@@ -298,7 +308,9 @@ def sync_lock_data(
             del actions[id]
             continue
         actions[id] = Action.from_spec(
-            f"{new.id}={new.spec}", requested_name=new.name, pinned=new.pin
+            f"{new.id}={new.spec}",
+            requested_name=new.name,
+            pinned=new.pin,
         )
         # TODO: async
         actions[id].fetch()
