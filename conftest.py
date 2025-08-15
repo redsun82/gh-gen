@@ -21,7 +21,7 @@ def pytest_addoption(parser):
 
 
 @dataclasses.dataclass(frozen=True)
-class _Call:
+class Call:
     name: str
     file: pathlib.Path
     position: dis.Positions
@@ -36,13 +36,15 @@ class _Call:
             call_frame.positions,
         )
 
-    def __str__(self):
-        return (
-            f"{self.name}@{self.file}:{self.position.lineno}:{self.position.end_lineno}"
-        )
+    @property
+    def location(self) -> str:
+        return f"{self.file}:{self.position.lineno}:{self.position.end_lineno}"
+
+    def __str__(self) -> str:
+        return f"{self.name}@{self.location}"
 
 
-_learn = pytest.StashKey[list[tuple[_Call, str | None]]]()
+_learn = pytest.StashKey[list[tuple[Call, str | None]]]()
 
 
 def pytest_configure(config: pytest.Config):
@@ -52,7 +54,7 @@ def pytest_configure(config: pytest.Config):
 def expect(expected: str | None = None):
     assert not callable(expected), "replace @expect with @expect()"
     expected = expected and textwrap.dedent(expected)
-    call = _Call.get()
+    call = Call.get()
 
     def decorator(f):
         def wrapper(pytestconfig: pytest.Config):
@@ -92,7 +94,7 @@ def error(request):
             return self.err.value
 
         def __call__(self, expected=None):
-            expected_errors.append((_Call.get("error"), expected))
+            expected_errors.append((Call.get("error"), expected))
 
         def __enter__(self):
             self.ctx_manager = pytest.raises(GenerationError)
@@ -124,7 +126,7 @@ def error(request):
         for lineno, message in actual.items():
             request.config.stash[_learn].append(
                 (
-                    _Call("error", this_file, dis.Positions(lineno)),
+                    Call("error", this_file, dis.Positions(lineno)),
                     message,
                 )
             )
@@ -188,7 +190,7 @@ class TestRepo:
             diff = textwrap.dedent(diff)
             up = inspect.currentframe().f_back
             name = next(var for var, value in up.f_locals.items() if value is self)
-            call = _Call.get(f"{name}.expect_diff")
+            call = Call.get(f"{name}.expect_diff")
             assert self.path.exists(), f"{self.path} was not created"
             new_contents = self.path.read_text()
             actual_diff = difflib.unified_diff(

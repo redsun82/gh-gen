@@ -63,12 +63,12 @@ def run(args: argparse.Namespace):
     uses = args.config.yaml.setdefault("uses", {})
     for a in actions:
         clause: dict[str, str | bool] | str = (
-            dict(uses=a.spec) if args.name or not args.pin else a.spec
+            dict(uses=a.spec) if args.name or args.pin is not None else a.spec
         )
         if args.name:
             clause["name"] = args.name
-        if not args.pin:
-            clause["pin"] = False
+        if args.pin is not None:
+            clause["pin"] = args.pin
         if a.id in uses:
             if uses[a.id] == clause:
                 print(
