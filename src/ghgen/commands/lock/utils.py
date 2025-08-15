@@ -227,13 +227,6 @@ class RemoteAction(Action):
     def fetch(self):
         """Fetch inputs from the remote action repository."""
         self.resolved_ref = self.ref or self._gh_api_jq("releases/latest", ".tag_name")
-        address = str(
-            pathlib.PurePosixPath(
-                "contents", self.path, f"action.yml?ref={self.resolved_ref}"
-            )
-        )
-        with self._gh_api("application/vnd.github.v3.raw", address) as out:
-            self._load(out)
         if self.pinned:
             for kind in ("tags", "heads"):
                 try:
@@ -247,6 +240,13 @@ class RemoteAction(Action):
                     pass
             else:
                 self.sha = self.resolved_ref
+        address = str(
+            pathlib.PurePosixPath(
+                "contents", self.path, f"action.yml?ref={self.sha or self.resolved_ref}"
+            )
+        )
+        with self._gh_api("application/vnd.github.v3.raw", address) as out:
+            self._load(out)
 
 
 class ActionDescription(typing.NamedTuple):

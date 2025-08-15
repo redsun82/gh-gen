@@ -222,6 +222,7 @@ class MockedGhApi:
                 ret.stdout = io.StringIO(value)
             except KeyError:
                 ret.returncode = 1
+                ret.stdout = io.StringIO()
             return ret
 
         monkeypatch.setattr("subprocess.Popen", mock_subprocess_popen)
@@ -254,7 +255,7 @@ class MockedGhApi:
             "api",
             "-H",
             "Accept: application/vnd.github.v3.raw",
-            f"repos/{target}/contents/{path_to_action}?ref={version}",
+            f"repos/{target}/contents/{path_to_action}?ref={sha or version}",
         ] = (this_call, textwrap.dedent(contents))
         if sha is not None:
             self.calls[
