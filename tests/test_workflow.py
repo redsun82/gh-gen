@@ -1362,3 +1362,58 @@ def test_step_comments():
         uses="uses comment",
         with_="with comment",
     )
+
+
+@expect(
+    """\
+    # generated from test_workflow.py::test_many_worfklow_call_inputs
+    on:
+      workflow_call:
+        inputs:
+          input-0:
+            required: false
+            type: string
+          input-1:
+            required: false
+            type: string
+          input-2:
+            required: false
+            type: string
+          input-3:
+            required: false
+            type: string
+          input-4:
+            required: false
+            type: string
+          input-5:
+            required: false
+            type: string
+          input-6:
+            required: false
+            type: string
+          input-7:
+            required: false
+            type: string
+          input-8:
+            required: false
+            type: string
+          input-9:
+            required: false
+            type: string
+          input-10:
+            required: false
+            type: string
+    jobs:
+      test_many_worfklow_call_inputs:
+        runs-on: ubuntu-latest
+        steps:
+        - run: ''
+    """
+)
+def test_many_worfklow_call_inputs():
+    on.workflow_call()
+
+    for i in range(11):
+        on.input(id=f"input-{i}")
+
+    run("")

@@ -519,6 +519,16 @@ def _text[T](field: str, value: T) -> T:
     return value
 
 
+def _check_workflow_dispatch_max_inputs():
+    if (
+        _ctx.current_workflow
+        and _ctx.current_workflow.on.workflow_dispatch
+        and _ctx.current_workflow.on.workflow_dispatch.inputs
+        and len(_ctx.current_workflow.on.workflow_dispatch.inputs) == 10
+    ):
+        _ctx.error("too many workflow_dispatch inputs, maximum is 10")
+
+
 class _OnUpdater(_Updater):
     class _PullRequestOrPush(_Updater):
         def branches(self, *branches: str | typing.Iterable[str]) -> typing.Self:
@@ -644,6 +654,7 @@ class _OnUpdater(_Updater):
     class _WorkflowDispatch(_Updater):
         @property
         def input(self) -> "_OnUpdater._Input":
+            _check_workflow_dispatch_max_inputs()
             return self._sub_updater(_OnUpdater._Input, "inputs", "*")
 
         def __call__(self) -> "_OnUpdater":
@@ -714,6 +725,7 @@ class _OnUpdater(_Updater):
 
     @property
     def input(self) -> _Input:
+        _check_workflow_dispatch_max_inputs()
         return self._sub_updater(self._Input, "inputs", "*")
 
     @property

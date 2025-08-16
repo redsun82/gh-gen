@@ -208,10 +208,8 @@ class ProxyList[T](list[T]):
             p.append(new)
 
     def extend(self, iterable: typing.Iterable[T]):
-        new = list(iterable)
-        super().extend(new)
-        for p in self.proxied:
-            p.extend(new)
+        for x in iterable:
+            self.append(x)
 
     def add_proxied(self, l: list[T]):
         super().extend(l)

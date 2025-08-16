@@ -506,3 +506,27 @@ def test_wrong_comments(error):
 
     error("step is missing fields targeted by comments: name, asdf")
     run("").comment(name="not there", run="ok", asdf="not there")
+
+
+@expect_errors
+def test_too_many_inputs(error):
+    on.workflow_dispatch()
+
+    for i in range(10):
+        on.input(id=f"input{i}")
+
+    error("too many workflow_dispatch inputs, maximum is 10")
+    on.input(id="too_much")
+
+    run("")
+
+
+@expect_errors
+def test_too_many_inputs_on_workflow_dispatch(error):
+    for i in range(10):
+        on.workflow_dispatch.input(id=f"input{i}")
+
+    error("too many workflow_dispatch inputs, maximum is 10")
+    on.workflow_dispatch.input(id="too_much")
+
+    run("")
