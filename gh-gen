@@ -7,5 +7,4 @@ if ! which uv &> /dev/null; then
     exit 1
 fi
 
-exec -a "$0" uv --project "$(dirname "$0")" run gh-gen "$@"
-
+exec uv --project "$(dirname "$0")" run gh-gen "$@"
