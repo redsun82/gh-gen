@@ -7,7 +7,7 @@ import difflib
 
 from ruamel.yaml import CommentedMap
 
-from ..ctx import WorkflowInfo, GenerationError
+from ..syntax import WorkflowInfo, GenerationError
 from .utils import DiffError, yaml
 from .lock.sync import run as sync
 

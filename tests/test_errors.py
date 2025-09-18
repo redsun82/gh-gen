@@ -3,7 +3,7 @@ import inspect
 import pytest
 
 from conftest import expect_errors
-from src.ghgen.ctx import *
+from ghgen.syntax import *
 
 
 @expect_errors
@@ -424,7 +424,7 @@ def test_wrong_permissions(error):
     )
     permissions("read-all", attestations="write")
     error(
-        "expected `permissions` to be of type `Union[Permissions, Literal['read-all', 'write-all'], NoneType]`, got `'foo'` of type `str`"
+        "expected `permissions` to be of type `Union[ghgen.workflow.Permissions, Literal['read-all', 'write-all'], NoneType]`, got `'foo'` of type `str`"
     )
     permissions("foo")
 
@@ -457,7 +457,7 @@ def test_wrong_defaults(error):
     def j():
         defaults.run.working_directory(github.actor)
         error(
-            "expected `shell` to be of type `str | bool | int | float | Expr | None`, got `['foo', 'bar']` of type `list`"
+            "expected `shell` to be of type `str | bool | int | float | ghgen.expr.Expr | None`, got `['foo', 'bar']` of type `list`"
         )
         defaults.run.shell(["foo", "bar"])
         run("")

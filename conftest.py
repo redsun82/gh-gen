@@ -6,7 +6,7 @@ import textwrap
 
 import pytest
 
-from src.ghgen.ctx import workflow, GenerationError
+from ghgen.syntax import workflow, GenerationError
 from src.ghgen.commands.generate import generate_workflow
 from src.ghgen.commands.utils import project_dir
 import pathlib

@@ -4,7 +4,7 @@ import typing
 import pathlib
 import colorlog
 
-from .ctx import WorkflowInfo, GenerationError
+from .syntax import WorkflowInfo, GenerationError
 from .commands import commands
 from .commands.generate import run as generate
 from .commands.utils import relativized_path, project_dir, load, config_file
