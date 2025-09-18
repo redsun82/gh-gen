@@ -19,14 +19,14 @@ def _set_flow_style(d: dict, *fields) -> dict:
     return d
 
 
-def _with_flow_style(v: dict | list) -> CommentedSeq | CommentedMap:
+def _with_flow_style(v: Any) -> Any:
     match v:
         case list():
             ret = CommentedSeq(v)
         case dict():
             ret = CommentedMap(v)
         case _:
-            assert False
+            return v
     ret.fa.set_flow_style()
     return ret
 
