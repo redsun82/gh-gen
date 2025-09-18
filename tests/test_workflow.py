@@ -1520,6 +1520,9 @@ def test_step_comments():
           input-10:
             required: false
             type: string
+    defaults:
+      run:
+        shell: bash
     jobs:
       test_many_worfklow_call_inputs:
         runs-on: ubuntu-latest
