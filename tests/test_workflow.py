@@ -883,8 +883,8 @@ def test_if_expr():
         - id: x
           name: x
           run: |
-            echo one=a >> $GITHUB_OUTPUT
-            echo two=b >> $GITHUB_OUTPUT
+            echo one=a | tee -a $GITHUB_OUTPUT
+            echo two=b | tee -a $GITHUB_OUTPUT
       j2:
         runs-on: ubuntu-latest
         outputs:
@@ -899,11 +899,11 @@ def test_if_expr():
         - id: x
           name: x
           run: |
-            echo one=a >> $GITHUB_OUTPUT
-            echo two=b >> $GITHUB_OUTPUT
+            echo one=a | tee -a $GITHUB_OUTPUT
+            echo two=b | tee -a $GITHUB_OUTPUT
         - id: y
           name: y
-          run: echo three=c >> $GITHUB_OUTPUT
+          run: echo three=c | tee -a $GITHUB_OUTPUT
     """
 )
 def test_implicit_job_outputs():
@@ -944,11 +944,11 @@ def test_implicit_job_outputs():
         - id: x
           name: x
           run: |
-            echo one=a >> $GITHUB_OUTPUT
-            echo two=b >> $GITHUB_OUTPUT
+            echo one=a | tee -a $GITHUB_OUTPUT
+            echo two=b | tee -a $GITHUB_OUTPUT
         - id: y
           name: y
-          run: echo three=c >> $GITHUB_OUTPUT
+          run: echo three=c | tee -a $GITHUB_OUTPUT
     """
 )
 def test_explicit_job_outputs():

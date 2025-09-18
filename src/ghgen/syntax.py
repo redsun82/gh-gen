@@ -1295,7 +1295,7 @@ class _StepUpdater(ProxyExpr, _IdElementUpdater[Step]):
             if kwargs:
                 # TODO: handle quoting?
                 out_code = "\n".join(
-                    f"echo {k}={v} >> $GITHUB_OUTPUT" for k, v in kwargs.items()
+                    f"echo {k}={v} | tee -a $GITHUB_OUTPUT" for k, v in kwargs.items()
                 )
                 previous_code = ret._element.run
                 # validate addition without repeating errors on existing code
