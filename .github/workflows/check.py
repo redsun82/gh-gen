@@ -1,4 +1,4 @@
-from ghgen.ctx import *
+from ghgen.syntax import *
 from actions import *
 
 
