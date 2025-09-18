@@ -1174,6 +1174,7 @@ class _StepUpdater(ProxyExpr, _IdElementUpdater[Step]):
         continue_on_error: bool | None = None,
         uses: str | None = None,
         shell: Value | None = None,
+        working_directory: Value | None = None,
         with_: dict[str, Value] | None = None,
         outputs: tuple[str] | None = None,
         needs: typing.Iterable[RefExpr] | None = None,
@@ -1186,6 +1187,7 @@ class _StepUpdater(ProxyExpr, _IdElementUpdater[Step]):
             .needs(needs)
             .env(env)
             .shell(shell)
+            .working_directory(working_directory)
         )
         if run is not None:
             ret.run(run)
