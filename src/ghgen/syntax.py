@@ -1444,4 +1444,5 @@ concurrency = _ConcurrencyUpdater()
 
 cancelled = function("cancelled", 0)
 fromJson = function("fromJson")
+toJson = function("toJson")
 contains = function("contains", 2)
