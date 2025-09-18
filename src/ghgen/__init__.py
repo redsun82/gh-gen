@@ -94,3 +94,4 @@ def main(args: typing.Sequence[str] = None) -> int:
         return opts.command(opts)
     except Exception as e:
         logging.exception(e, exc_info=opts.verbose)
+        return 1
