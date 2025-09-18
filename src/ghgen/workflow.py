@@ -487,6 +487,7 @@ class Environment(Element):
 
 class Job(Element):
     name: Value
+    if_: Value
     permissions: Permissions | typing.Literal["read-all", "write-all"]
     needs: list[str]
     runs_on: Value
