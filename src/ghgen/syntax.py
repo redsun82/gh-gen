@@ -1243,6 +1243,9 @@ class _StepUpdater(ProxyExpr, _IdElementUpdater[Step]):
     def shell(self, shell: Value) -> typing.Self:
         return self._ensure_run_step()._update("shell", _value, shell)
 
+    def working_directory(self, dir: Value) -> typing.Self:
+        return self._ensure_run_step()._update("working_directory", _value, dir)
+
     def run(self, code: Value) -> typing.Self:
         return self._ensure_run_step()._update("run", _text, code)
 

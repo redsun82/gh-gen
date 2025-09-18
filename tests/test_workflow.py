@@ -1537,3 +1537,27 @@ def test_many_worfklow_call_inputs():
         on.input(id=f"input-{i}")
 
     run("")
+
+
+@expect(
+    """\
+    # generated from test_workflow.py::test_step_working_directory
+    on:
+      workflow_dispatch: {}
+    defaults:
+      run:
+        shell: bash
+    jobs:
+      j:
+        runs-on: ubuntu-latest
+        steps:
+        - run: echo hello
+          working-directory: subdir
+    """
+)
+def test_step_working_directory():
+    on.workflow_dispatch()
+
+    @job
+    def j():
+        step.run("echo hello").working_directory("subdir")

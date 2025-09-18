@@ -364,6 +364,7 @@ class Step(Element):
     uses: str
     with_: dict[str, Value]
     shell: Value
+    working_directory: Value
 
     # extensions
     outputs: dict[str, str]
