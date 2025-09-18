@@ -363,6 +363,7 @@ class Step(Element):
     env: dict[str, Value]
     uses: str
     with_: dict[str, Value]
+    shell: Value
 
     # extensions
     outputs: dict[str, str]
@@ -507,10 +508,10 @@ class Job(Element):
 
 class WorkflowDefaults(Element):
     class Run(Element):
-        shell: str
+        shell: str | None = "bash"
         working_directory: str
 
-    run: Run
+    run: Run | None = field(default_factory=Run)
 
 
 class Workflow(Element):
@@ -519,5 +520,5 @@ class Workflow(Element):
     permissions: Permissions | typing.Literal["read-all", "write-all"]
     concurrency: Concurrency
     env: dict[str, Value]
-    defaults: WorkflowDefaults
+    defaults: WorkflowDefaults | None = field(default_factory=WorkflowDefaults)
     jobs: dict[str, Job] = field(default_factory=dict)

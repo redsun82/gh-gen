@@ -1173,6 +1173,7 @@ class _StepUpdater(ProxyExpr, _IdElementUpdater[Step]):
         env: dict[str, Value] | None = None,
         continue_on_error: bool | None = None,
         uses: str | None = None,
+        shell: Value | None = None,
         with_: dict[str, Value] | None = None,
         outputs: tuple[str] | None = None,
         needs: typing.Iterable[RefExpr] | None = None,
@@ -1184,6 +1185,7 @@ class _StepUpdater(ProxyExpr, _IdElementUpdater[Step]):
             .continue_on_error(continue_on_error)
             .needs(needs)
             .env(env)
+            .shell(shell)
         )
         if run is not None:
             ret.run(run)
@@ -1237,6 +1239,9 @@ class _StepUpdater(ProxyExpr, _IdElementUpdater[Step]):
         **kwargs: Value,
     ) -> typing.Self:
         return self._update("env", _map, (mapping, kwargs))
+
+    def shell(self, shell: Value) -> typing.Self:
+        return self._ensure_run_step()._update("shell", _value, shell)
 
     def run(self, code: Value) -> typing.Self:
         return self._ensure_run_step()._update("run", _text, code)

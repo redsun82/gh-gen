@@ -21,6 +21,9 @@ from ghgen.syntax import *
         - main
         - '!v1.0.0'
       workflow_dispatch: {}
+    defaults:
+      run:
+        shell: bash
     jobs:
       test_basic:
         name: My workflow
@@ -55,6 +58,9 @@ def test_basic():
         - foo/**
         ignore-paths:
         - foo/bar/**
+    defaults:
+      run:
+        shell: bash
     jobs:
       test_pull_request:
         runs-on: ubuntu-latest
@@ -82,6 +88,9 @@ def test_pull_request():
         - main
         paths:
         - foo/**
+    defaults:
+      run:
+        shell: bash
     jobs:
       test_merge:
         runs-on: ubuntu-latest
@@ -100,6 +109,9 @@ def test_merge():
     # generated from test_workflow.py::test_job
     on:
       workflow_dispatch: {}
+    defaults:
+      run:
+        shell: bash
     jobs:
       my_job:
         name: My job
@@ -121,6 +133,9 @@ def test_job():
     # generated from test_workflow.py::test_jobs
     on:
       workflow_dispatch: {}
+    defaults:
+      run:
+        shell: bash
     jobs:
       job1:
         name: First job
@@ -151,6 +166,9 @@ def test_jobs():
     # generated from test_workflow.py::test_job_runs_on
     on:
       workflow_dispatch: {}
+    defaults:
+      run:
+        shell: bash
     jobs:
       my_job:
         runs-on: windows-latest
@@ -169,6 +187,9 @@ def test_job_runs_on():
     # generated from test_workflow.py::test_multiline_run_code_dedented
     on:
       workflow_dispatch: {}
+    defaults:
+      run:
+        shell: bash
     jobs:
       test_multiline_run_code_dedented:
         runs-on: ubuntu-latest
@@ -193,6 +214,9 @@ def test_multiline_run_code_dedented():
     # generated from test_workflow.py::test_strategy_with_cross_matrix
     on:
       workflow_dispatch: {}
+    defaults:
+      run:
+        shell: bash
     jobs:
       a_job:
         runs-on: ubuntu-latest
@@ -218,6 +242,9 @@ def test_strategy_with_cross_matrix():
     # generated from test_workflow.py::test_strategy_with_include_exclude_matrix
     on:
       workflow_dispatch: {}
+    defaults:
+      run:
+        shell: bash
     jobs:
       a_job:
         runs-on: ubuntu-latest
@@ -252,6 +279,9 @@ def test_strategy_with_include_exclude_matrix():
     # generated from test_workflow.py::test_strategy_with_fail_fast_and_max_parallel
     on:
       workflow_dispatch: {}
+    defaults:
+      run:
+        shell: bash
     jobs:
       a_job:
         runs-on: ubuntu-latest
@@ -279,6 +309,9 @@ def test_strategy_with_fail_fast_and_max_parallel():
     # generated from test_workflow.py::test_strategy_in_workflow
     on:
       workflow_dispatch: {}
+    defaults:
+      run:
+        shell: bash
     jobs:
       test_strategy_in_workflow:
         runs-on: ubuntu-latest
@@ -309,6 +342,9 @@ def test_strategy_in_workflow():
           i:
             required: false
             type: string
+    defaults:
+      run:
+        shell: bash
     jobs:
       test_matrix_from_input:
         runs-on: ubuntu-latest
@@ -337,6 +373,9 @@ def test_matrix_from_input():
       workflow_dispatch: {}
     env:
       WORKFLOW_ENV: 1
+    defaults:
+      run:
+        shell: bash
     jobs:
       test_runs_on_in_workflow:
         runs-on: macos-latest
@@ -357,6 +396,9 @@ def test_runs_on_in_workflow():
     name: Foo bar
     on:
       workflow_dispatch: {}
+    defaults:
+      run:
+        shell: bash
     jobs:
       test_runs_on_in_worfklow_with_name:
         name: Foo bar
@@ -374,6 +416,9 @@ def test_runs_on_in_worfklow_with_name():
     # generated from test_workflow.py::test_steps
     on:
       workflow_dispatch: {}
+    defaults:
+      run:
+        shell: bash
     jobs:
       my_job:
         runs-on: ubuntu-latest
@@ -447,6 +492,9 @@ def test_steps():
           an-env:
             required: false
             type: environment
+    defaults:
+      run:
+        shell: bash
     jobs:
       test_workflow_dispatch_inputs:
         runs-on: ubuntu-latest
@@ -497,6 +545,9 @@ def test_workflow_dispatch_inputs():
           auth:
             description: auth if provided
             required: false
+    defaults:
+      run:
+        shell: bash
     jobs:
       test_workflow_call:
         runs-on: ubuntu-latest
@@ -554,6 +605,9 @@ def test_workflow_call():
             required: false
             default: true
             type: boolean
+    defaults:
+      run:
+        shell: bash
     jobs:
       test_inputs:
         runs-on: ubuntu-latest
@@ -591,6 +645,9 @@ def test_inputs():
           yet_another_input:
             required: false
             type: string
+    defaults:
+      run:
+        shell: bash
     jobs:
       test_input_underscores:
         runs-on: ubuntu-latest
@@ -621,6 +678,9 @@ def test_input_underscores():
           b:
             required: false
             type: string
+    defaults:
+      run:
+        shell: bash
     jobs:
       test_different_inputs:
         runs-on: ubuntu-latest
@@ -639,6 +699,9 @@ def test_different_inputs():
     # generated from test_workflow.py::test_id
     on:
       workflow_dispatch: {}
+    defaults:
+      run:
+        shell: bash
     jobs:
       test_id:
         runs-on: ubuntu-latest
@@ -696,6 +759,9 @@ def test_id():
     # generated from test_workflow.py::test_outputs_and_dashes
     on:
       workflow_dispatch: {}
+    defaults:
+      run:
+        shell: bash
     jobs:
       test_outputs_and_dashes:
         runs-on: ubuntu-latest
@@ -723,6 +789,9 @@ def test_outputs_and_dashes():
     # generated from test_workflow.py::test_step_id_underscores
     on:
       workflow_dispatch: {}
+    defaults:
+      run:
+        shell: bash
     jobs:
       test_step_id_underscores:
         runs-on: ubuntu-latest
@@ -750,6 +819,9 @@ def test_step_id_underscores():
     # generated from test_workflow.py::test_steps_array
     on:
       workflow_dispatch: {}
+    defaults:
+      run:
+        shell: bash
     jobs:
       j:
         runs-on: ubuntu-latest
@@ -771,6 +843,9 @@ def test_steps_array():
     # generated from test_workflow.py::test_if_expr
     on:
       workflow_dispatch: {}
+    defaults:
+      run:
+        shell: bash
     jobs:
       test_if_expr:
         runs-on: ubuntu-latest
@@ -795,6 +870,9 @@ def test_if_expr():
     # generated from test_workflow.py::test_implicit_job_outputs
     on:
       workflow_dispatch: {}
+    defaults:
+      run:
+        shell: bash
     jobs:
       j1:
         runs-on: ubuntu-latest
@@ -849,6 +927,9 @@ def test_implicit_job_outputs():
     # generated from test_workflow.py::test_explicit_job_outputs
     on:
       workflow_dispatch: {}
+    defaults:
+      run:
+        shell: bash
     jobs:
       j:
         runs-on: ubuntu-latest
@@ -893,6 +974,9 @@ def test_explicit_job_outputs():
           TWO:
             value: ${{ jobs.j2.result == 'success' && jobs.j1.outputs.two || jobs.j2.outputs.three
               }}
+    defaults:
+      run:
+        shell: bash
     jobs:
       j1:
         outputs:
@@ -924,6 +1008,9 @@ def test_workflow_outputs():
     # generated from test_workflow.py::test_needs
     on:
       workflow_dispatch: {}
+    defaults:
+      run:
+        shell: bash
     jobs:
       j1: {}
       j2:
@@ -970,6 +1057,9 @@ def test_needs():
     # generated from test_workflow.py::test_job_as_context
     on:
       workflow_dispatch: {}
+    defaults:
+      run:
+        shell: bash
     jobs:
       test_job_as_context:
         runs-on: ubuntu-latest
@@ -990,6 +1080,9 @@ def test_job_as_context():
     # generated from test_workflow.py::test_container
     on:
       workflow_dispatch: {}
+    defaults:
+      run:
+        shell: bash
     jobs:
       j1:
         runs-on: ubuntu-latest
@@ -1033,6 +1126,9 @@ def test_container():
     # generated from test_workflow.py::test_services
     on:
       workflow_dispatch: {}
+    defaults:
+      run:
+        shell: bash
     jobs:
       test_services:
         runs-on: ubuntu-latest
@@ -1065,6 +1161,9 @@ def test_services():
     # generated from test_workflow.py::test_strategy_as_context
     on:
       workflow_dispatch: {}
+    defaults:
+      run:
+        shell: bash
     jobs:
       test_strategy_as_context:
         runs-on: ubuntu-latest
@@ -1097,6 +1196,9 @@ def test_strategy_as_context():
     # generated from test_workflow.py::test_call
     on:
       workflow_dispatch: {}
+    defaults:
+      run:
+        shell: bash
     jobs:
       j1:
         uses: ./.github/workflows/foo.yml
@@ -1148,6 +1250,9 @@ def test_call():
     # generated from test_workflow.py::test_github_context
     on:
       workflow_dispatch: {}
+    defaults:
+      run:
+        shell: bash
     jobs:
       test_github_context:
         runs-on: ubuntu-latest
@@ -1179,6 +1284,9 @@ def test_github_context():
       actions: read
       deployments: write
       statuses: none
+    defaults:
+      run:
+        shell: bash
     jobs:
       j1:
         permissions: read-all
@@ -1258,6 +1366,9 @@ def test_defaults():
     concurrency:
       group: ${{ github.ref || github.run_id }}
       cancel-in-progress: true
+    defaults:
+      run:
+        shell: bash
     jobs:
       j1:
         runs-on: ubuntu-latest
@@ -1296,6 +1407,9 @@ def test_concurrency():
     # generated from test_workflow.py::test_environment
     on:
       workflow_dispatch: {}
+    defaults:
+      run:
+        shell: bash
     jobs:
       j1:
         runs-on: ubuntu-latest
@@ -1330,6 +1444,9 @@ def test_environment():
     # generated from test_workflow.py::test_step_comments
     on:
       workflow_dispatch: {}
+    defaults:
+      run:
+        shell: bash
     jobs:
       test_step_comments:
         runs-on: ubuntu-latest
