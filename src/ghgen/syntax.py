@@ -785,6 +785,10 @@ def runs_on(runner: Value):
     _update_element(_get_job, "runs_on", _value, runner)
 
 
+def if_(condition: Value):
+    _update_element(_get_job, "if_", _value, condition)
+
+
 def environment(name: Value, *, url: Value | None = None):
     value = name if url is None else Environment(name=name, url=url)
     _update_element(_get_job, "environment", _value, value)
