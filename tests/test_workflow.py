@@ -1581,3 +1581,24 @@ def test_step_working_directory():
 def test_format():
     on.workflow_dispatch()
     step.run(f"hey: {format("hello {0} {1} {2}", 'one', 2, 'three')}")
+
+
+@expect(
+    """\
+    # generated from test_workflow.py::test_delete_trigger
+    on:
+      delete: {}
+    defaults:
+      run:
+        shell: bash
+    jobs:
+      test_delete_trigger:
+        runs-on: ubuntu-latest
+        steps:
+        - run: ''
+    """
+)
+def test_delete_trigger():
+    on.delete()
+
+    step.run("")
