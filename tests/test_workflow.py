@@ -1561,3 +1561,23 @@ def test_step_working_directory():
     @job
     def j():
         step.run("echo hello").working_directory("subdir")
+
+
+@expect(
+    """\
+    # generated from test_workflow.py::test_format
+    on:
+      workflow_dispatch: {}
+    defaults:
+      run:
+        shell: bash
+    jobs:
+      test_format:
+        runs-on: ubuntu-latest
+        steps:
+        - run: "hey: ${{ format('hello {0} {1} {2}', 'one', 2, 'three') }}"
+    """
+)
+def test_format():
+    on.workflow_dispatch()
+    step.run(f"hey: {format("hello {0} {1} {2}", 'one', 2, 'three')}")

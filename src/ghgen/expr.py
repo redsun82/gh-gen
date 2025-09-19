@@ -2,6 +2,7 @@ import dataclasses
 import abc
 import functools
 import re
+import types
 import typing
 import weakref
 import contextlib
@@ -444,15 +445,21 @@ class ErrorExpr(Expr):
         return self._emit()
 
 
-def function(name: str, nargs: int = 1) -> typing.Callable[..., Expr]:
+def function(
+    name: str, nargs: int = 1, vararg: types.EllipsisType | None = None
+) -> typing.Callable[..., Expr]:
     def ret(*args: Expr, **kwargs: typing.Any) -> Expr:
         if kwargs:
             return ~ErrorExpr(
                 f"unexpected keyword arguments to `{name}`, expected {nargs} positional arguments",
             )
-        if len(args) != nargs:
+        if vararg is None and len(args) != nargs:
             return ~ErrorExpr(
                 f"wrong number of arguments to `{name}`, expected {nargs}, got {len(args)}"
+            )
+        if vararg is not None and len(args) < nargs:
+            return ~ErrorExpr(
+                f"not enough arguments to `{name}`, expected at least {nargs}, got {len(args)}"
             )
         return CallExpr(name, *(Expr._coerce(a) for a in args))
 
