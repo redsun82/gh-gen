@@ -258,6 +258,7 @@ class FlatMap(RefExpr):
 _op_precedence = (
     ("[]",),
     ("!",),
+    ("+",),
     ("<", "<=", ">", ">=", "==", "!="),
     ("&&",),
     ("||",),
@@ -439,6 +440,12 @@ class ErrorExpr(Expr):
         return self._emit()
 
     def __gt__(self, other) -> Expr:
+        return self._emit()
+
+    def __add__(self, other: typing.Any) -> Expr:
+        return self._emit()
+
+    def __radd__(self, other: typing.Any) -> Expr:
         return self._emit()
 
     def __getitem__(self, key: typing.Any) -> Expr:
