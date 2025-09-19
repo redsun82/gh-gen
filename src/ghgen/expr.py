@@ -113,12 +113,6 @@ class Expr(abc.ABC):
     def __gt__(self, other) -> "Expr":
         return BinOpExpr(self, self._coerce(other), ">")
 
-    def __add__(self, other: typing.Any) -> "Expr":
-        return BinOpExpr(self, self._coerce(other), "+")
-
-    def __radd__(self, other: typing.Any) -> "Expr":
-        return BinOpExpr(self._coerce(other), self, "+")
-
     def __getitem__(self, key: typing.Any) -> "Expr":
         return ItemExpr(self, self._coerce(key))
 
