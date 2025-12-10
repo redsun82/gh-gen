@@ -176,7 +176,6 @@ def _dictionarize(d: dict, *args: str) -> dict:
         if k not in d:
             continue
         serialized: list = d.pop(k)
-        print(serialized)
         d[k] = {id: x for id, x in ((e.pop("id", None), e) for e in serialized) if id}
     return d
 

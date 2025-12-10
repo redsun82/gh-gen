@@ -359,9 +359,7 @@ def test_strategy_in_workflow():
 )
 def test_matrix_from_input():
     i = on.workflow_dispatch.input()
-    print(current())
     strategy.matrix(fromJson(i))
-    print(current())
     run(f"{matrix.foo}, {matrix.bar}")
     step("Fail").if_(contains(i, "failed"))
 
