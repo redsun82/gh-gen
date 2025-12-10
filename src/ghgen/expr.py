@@ -20,6 +20,10 @@ class Expr(abc.ABC):
     def _formula(self) -> str:
         """Returns the syntax of this `Expr` with ref markers removed"""
         return self._syntax.replace("\0", "")
+    
+    @property
+    def _access(self) -> "Expr":
+        return self
 
     def _get_paths(self) -> typing.Generator[tuple[str, ...], None, None]:
         yield from ()
@@ -78,53 +82,54 @@ class Expr(abc.ABC):
     @staticmethod
     def _coerce(x: typing.Any) -> "Expr":
         if isinstance(x, Expr):
-            return x
+            return x._access
         return LiteralExpr(x)
 
     def __and__(self, other: typing.Any) -> "Expr":
-        return BinOpExpr(self, self._coerce(other), "&&")
+        return BinOpExpr(self._access, self._coerce(other), "&&")
 
     def __rand__(self, other: typing.Any) -> "Expr":
-        return BinOpExpr(self._coerce(other), self, "&&")
+        return BinOpExpr(self._coerce(other), self._access, "&&")
 
     def __or__(self, other: typing.Any) -> "Expr":
-        return BinOpExpr(self, self._coerce(other), "||")
+        return BinOpExpr(self._access, self._coerce(other), "||")
 
     def __ror__(self, other: typing.Any) -> "Expr":
-        return BinOpExpr(self._coerce(other), self, "||")
+        return BinOpExpr(self._coerce(other), self._access, "||")
 
-    def __invert__(self) -> "Expr":
-        return NotExpr(self)
+    def __invert__(self) -> "_access":
+        return NotExpr(self._access)
 
     def __eq__(self, other: typing.Any) -> "Expr":
-        return BinOpExpr(self, self._coerce(other), "==")
-
+        return BinOpExpr(self._access, self._coerce(other), "==")
+    
     def __ne__(self, other: typing.Any) -> "Expr":
-        return BinOpExpr(self, self._coerce(other), "!=")
+        return BinOpExpr(self._access, self._coerce(other), "!=")
 
     def __le__(self, other) -> "Expr":
-        return BinOpExpr(self, self._coerce(other), "<=")
+        return BinOpExpr(self._access, self._coerce(other), "<=")
 
     def __lt__(self, other) -> "Expr":
-        return BinOpExpr(self, self._coerce(other), "<")
+        return BinOpExpr(self._access, self._coerce(other), "<")
 
     def __ge__(self, other) -> "Expr":
-        return BinOpExpr(self, self._coerce(other), ">=")
+        return BinOpExpr(self._access, self._coerce(other), ">=")
 
     def __gt__(self, other) -> "Expr":
-        return BinOpExpr(self, self._coerce(other), ">")
+        return BinOpExpr(self._access, self._coerce(other), ">")
 
     def __getitem__(self, key: typing.Any) -> "Expr":
-        return ItemExpr(self, self._coerce(key))
+        return ItemExpr(self._access, self._coerce(key))
 
     def __getattr__(self, key: str) -> typing.Self:
         if key == "_":
-            return DotExpr(self, "*")
+            return DotExpr(self._access, "*")
         if key.startswith("_"):
             raise AttributeError(key)
-        return DotExpr(self, key)
+        return DotExpr(self._access, key)
 
     def __bool__(self):
+        _ = self._access
         _current_on_error(
             f"expression {self._syntax} cannot be coerced to bool: did you mean to use `&` for `and` or `|` for `or`?",
         )
@@ -356,14 +361,14 @@ class CallExpr(Expr):
             yield from a._get_paths()
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(eq=False)
 class ProxyExpr(Expr):
     _filled_expr: Expr | None = None
 
     def _get_expr(self) -> Expr: ...
 
     @property
-    def _expr(self) -> Expr:
+    def _access(self) -> Expr:
         if self._filled_expr is None:
             self._filled_expr = self._get_expr()
             assert self._filled_expr is not None
@@ -371,20 +376,22 @@ class ProxyExpr(Expr):
 
     @property
     def _syntax(self) -> str:
-        return self._expr._syntax
+        return self._access._syntax
 
     def _get_paths(self) -> typing.Generator[tuple[str, ...], None, None]:
-        return self._expr._get_paths()
+        return self._access._get_paths()
 
     def __getattr__(self, item: str) -> typing.Any:
-        if item in ("_expr", "_syntax"):  # why is this necessary?
+        if item in ("_access", "_syntax"):  # why is this necessary?
             return getattr(ProxyExpr, item).__get__(self)
         if item.startswith("_"):
             raise AttributeError(item)
-        return getattr(self._expr, item)
+        return getattr(self._access, item)
 
 
-@dataclasses.dataclass
+
+
+@dataclasses.dataclass(eq=False)
 class ErrorExpr(Expr):
     _error: str | typing.Callable[[], str]
     _emitted: bool = False

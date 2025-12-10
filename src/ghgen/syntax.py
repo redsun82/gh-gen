@@ -328,7 +328,7 @@ def _update_element[T, U](
         setattr(parent, field, new_value)
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(eq=False)
 class _Updater[T]:
     _start: typing.Callable[[str], typing.Any]
     _path: tuple[str | int, ...]
@@ -407,7 +407,7 @@ class _Updater[T]:
         return ty(self._start, self._path + fields)
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(eq=False)
 class _IdElementUpdater[T](_Updater[T]):
     @property
     def _log_path(self) -> str:
@@ -583,7 +583,7 @@ class _OnUpdater(_Updater):
             ).ignore_paths(ignore_paths).tags(tags).ignore_tags(ignore_tags)
             return on
 
-    @dataclass
+    @dataclass(eq=False)
     class _Input(ProxyExpr, _IdElementUpdater[Input]):
         def __init__(self, *args, **kwargs):
             ProxyExpr.__init__(self)
@@ -662,7 +662,7 @@ class _OnUpdater(_Updater):
             return on
 
     class _WorkflowCall(_WorkflowDispatch):
-        @dataclass
+        @dataclass(eq=False)
         class _Secret(ProxyExpr, _IdElementUpdater[Secret]):
             def __init__(self, *args, **kwargs):
                 ProxyExpr.__init__(self)
