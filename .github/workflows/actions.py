@@ -28,7 +28,7 @@ def checkout(
     github_server_url: str | None = None,
 ):
     return uses(
-        "actions/checkout@v4"
+        "actions/checkout@v6"
     ).with_((
         ("repository", repository),
         ("ref", ref),
@@ -52,8 +52,6 @@ def checkout(
         ("github-server-url", github_server_url),
     )).name(
         "Checkout"
-    ).comment(
-        uses="v4"
     ).outputs(
         "ref",
         "commit",
@@ -83,21 +81,25 @@ def setup_uv(
     activate_environment: str | None = None,
     working_directory: str | None = None,
     checksum: str | None = None,
-    server_url: str | None = None,
     github_token: str | None = None,
     enable_cache: str | None = None,
     cache_dependency_glob: str | None = None,
+    restore_cache: str | None = None,
+    save_cache: str | None = None,
     cache_suffix: str | None = None,
     cache_local_path: str | None = None,
     prune_cache: str | None = None,
+    cache_python: str | None = None,
     ignore_nothing_to_cache: str | None = None,
     ignore_empty_workdir: str | None = None,
     tool_dir: str | None = None,
     tool_bin_dir: str | None = None,
     manifest_file: str | None = None,
+    add_problem_matchers: str | None = None,
+    resolution_strategy: str | None = None,
 ):
     return uses(
-        "astral-sh/setup-uv@e92bafb6253dcd438e0484186d7669ea7a8ca1cc"
+        "astral-sh/setup-uv@ed21f2f24f8dd64503750218de024bcf64c7250a"
     ).with_((
         ("version", version),
         ("version-file", version_file),
@@ -105,25 +107,30 @@ def setup_uv(
         ("activate-environment", activate_environment),
         ("working-directory", working_directory),
         ("checksum", checksum),
-        ("server-url", server_url),
         ("github-token", github_token),
         ("enable-cache", enable_cache),
         ("cache-dependency-glob", cache_dependency_glob),
+        ("restore-cache", restore_cache),
+        ("save-cache", save_cache),
         ("cache-suffix", cache_suffix),
         ("cache-local-path", cache_local_path),
         ("prune-cache", prune_cache),
+        ("cache-python", cache_python),
         ("ignore-nothing-to-cache", ignore_nothing_to_cache),
         ("ignore-empty-workdir", ignore_empty_workdir),
         ("tool-dir", tool_dir),
         ("tool-bin-dir", tool_bin_dir),
         ("manifest-file", manifest_file),
+        ("add-problem-matchers", add_problem_matchers),
+        ("resolution-strategy", resolution_strategy),
     )).name(
         "Setup uv"
     ).comment(
-        uses="v6.4.3"
+        uses="v7.1.5"
     ).outputs(
         "uv-version",
         "uv-path",
         "uvx-path",
         "cache-hit",
+        "venv",
     )

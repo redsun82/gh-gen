@@ -50,8 +50,8 @@ actions:
   owner: actions
   repo: checkout
   path: ''
-  ref: v4
-  resolved-ref: v4
+  resolved-ref: v6
+  trusted: true
 - pinned: true
   id: pre_commit
   requested-name: Check
@@ -66,6 +66,7 @@ actions:
   path: ''
   resolved-ref: v3.0.1
   sha: 2c7b3805fd2a0fd8c1884dcaebf91fc102a13ecd
+  trusted: false
 - pinned: true
   id: setup_uv
   requested-name: Setup uv
@@ -85,9 +86,6 @@ actions:
   - name: checksum
     id: checksum
     required: false
-  - name: server_url
-    id: server-url
-    required: false
   - name: github_token
     id: github-token
     required: false
@@ -95,6 +93,10 @@ actions:
     id: enable-cache
   - name: cache_dependency_glob
     id: cache-dependency-glob
+  - name: restore_cache
+    id: restore-cache
+  - name: save_cache
+    id: save-cache
   - name: cache_suffix
     id: cache-suffix
     required: false
@@ -102,6 +104,8 @@ actions:
     id: cache-local-path
   - name: prune_cache
     id: prune-cache
+  - name: cache_python
+    id: cache-python
   - name: ignore_nothing_to_cache
     id: ignore-nothing-to-cache
   - name: ignore_empty_workdir
@@ -115,13 +119,19 @@ actions:
   - name: manifest_file
     id: manifest-file
     required: false
+  - name: add_problem_matchers
+    id: add-problem-matchers
+  - name: resolution_strategy
+    id: resolution-strategy
   outputs:
   - uv-version
   - uv-path
   - uvx-path
   - cache-hit
+  - venv
   owner: astral-sh
   repo: setup-uv
   path: ''
-  resolved-ref: v6.4.3
-  sha: e92bafb6253dcd438e0484186d7669ea7a8ca1cc
+  resolved-ref: v7.1.5
+  sha: ed21f2f24f8dd64503750218de024bcf64c7250a
+  trusted: false

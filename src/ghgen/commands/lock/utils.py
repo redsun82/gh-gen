@@ -95,6 +95,7 @@ class Action(ConfigElement):
                 )
             case [".", head, *tail] if version is None:
                 kwargs.pop("pinned", None)
+                kwargs.pop("trusted", None)
                 return LocalAction(
                     id=id or _make_id(tail[-1]),
                     path=f"{head}/{'/'.join(tail)}",
@@ -167,6 +168,7 @@ class RemoteAction(Action):
     resolved_ref: str
     sha: str
     pinned: bool = True
+    trusted: bool = False
 
     @property
     def spec(self) -> str:
@@ -191,7 +193,7 @@ class RemoteAction(Action):
 
     @property
     def comment(self):
-        if self.sha != self.resolved_ref:
+        if self.pinned and self.sha != self.resolved_ref:
             return self.resolved_ref
         else:
             return None
@@ -226,7 +228,13 @@ class RemoteAction(Action):
 
     def fetch(self):
         """Fetch inputs from the remote action repository."""
-        self.resolved_ref = self.ref or self._gh_api_jq("releases/latest", ".tag_name")
+        if self.ref:
+            self.resolved_ref = self.ref
+        else:
+            self.resolved_ref = self._gh_api_jq("releases/latest", ".tag_name")
+            if self.trusted and not self.pinned:
+                # take just the major version
+                self.resolved_ref = self.resolved_ref.partition(".")[0]
         if self.pinned:
             for kind in ("tags", "heads"):
                 try:
@@ -253,7 +261,10 @@ class ActionDescription(typing.NamedTuple):
     id: str
     spec: str
     pin: bool
-    name: str | None = None
+    trust: bool
+    name: str | None
+      
+
 
 
 def sync_lock_data(
@@ -279,18 +290,20 @@ def sync_lock_data(
         case _:
             assert False, "actions_to_update must be a list, 'all', or 'changed'"
 
-    def get_pinned_value(request: bool | None, spec: str) -> bool:
-        if request is not None:
-            return request
+    def get_description(id: str, spec: str, name: str | None=None, pin: bool | None=None) -> bool:
         owner, _, _ = spec.partition("/")
-        return not owner in args.config.trusted_owners
+        trusted = owner in args.config.trusted_owners
+        return ActionDescription(id, spec, pin=pin if pin is not None else not trusted, trust=trusted, name=name)
+
+    def get_pinned_value(request: bool | None, trusted: bool) -> bool:
+        return request if request is not None else not trusted
 
     for id, u in uses.items():
         match u:
             case UsesClause(uses=spec, name=name, pin=pin):
-                new = ActionDescription(id, spec, get_pinned_value(pin, spec), name)
+                new = get_description(id, spec, name, pin)
             case str() as spec:
-                new = ActionDescription(id, spec, get_pinned_value(None, spec))
+                new = get_description(id, spec)
             case None:
                 new = None
             case _:
@@ -300,6 +313,7 @@ def sync_lock_data(
             prev.id,
             prev.spec,
             prev.pinned,
+            prev.spec.partition("/")[0] in args.config.trusted_owners,
             prev.requested_name,
         )
         if not to_update(prev_desc, new):
@@ -311,6 +325,7 @@ def sync_lock_data(
             f"{new.id}={new.spec}",
             requested_name=new.name,
             pinned=new.pin,
+            trusted=new.trust,
         )
         # TODO: async
         actions[id].fetch()
