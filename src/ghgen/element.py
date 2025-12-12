@@ -14,7 +14,7 @@ class Element:
     @classmethod
     def _key(cls, key: str) -> str:
         key = key.rstrip("_")
-        if not cls._preserve_underscores:
+        if not cls._preserve_underscores and not key.isupper():
             key = key.replace("_", "-").replace("--", "_")
         return key
 

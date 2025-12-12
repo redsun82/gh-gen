@@ -438,6 +438,7 @@ def test_runs_on_in_worfklow_with_name():
           with:
             arg-1: foo
             arg_2: bar
+            UPPERCASE_ARG: 42
             arg_3: baz
         - name: other
           uses: ./my_other_action
@@ -459,7 +460,9 @@ def test_steps():
         run("echo $WHO").env(WHO="world")
         step("catastrophe").run("echo oh no").if_("failure()")
         uses("actions/checkout@v4").with_(ref="dev")
-        uses("./my_action").with_(arg_1="foo", arg__2="bar").with_((("arg_3", "baz"),))
+        uses("./my_action").with_(arg_1="foo", arg__2="bar", UPPERCASE_ARG=42).with_(
+            (("arg_3", "baz"),)
+        )
         step("other").uses("./my_other_action", arg_1="foo", arg__2="bar")
         run("one").continue_on_error()
         run("two").continue_on_error("value")
@@ -1217,6 +1220,7 @@ def test_strategy_as_context():
         secrets:
           a: ${{ secrets.baz }}
           b: ${{ secrets.bazz }}
+          MY_SECRET: ${{ secrets.MY_SECRET }}
     """
 )
 def test_call():
@@ -1239,7 +1243,9 @@ def test_call():
     @job
     def j4():
         uses("foo/bar/.github/workflows/baz.yml@v2").secrets(
-            a=secrets.baz, b=secrets.bazz
+            a=secrets.baz,
+            b=secrets.bazz,
+            MY_SECRET=secrets.MY_SECRET,
         )
 
 
