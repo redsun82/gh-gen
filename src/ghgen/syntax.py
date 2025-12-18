@@ -964,11 +964,11 @@ class _JobCallUpdater:
 
 
 _action_regex = re.compile(
-    r"^(?a:(\.)|[\w-]+)/.*?(?P<action_name>[^/]+)(?(1)|@[\w.-]+)$"
+    r"^(?a:(\.)|[\w-]+)/[^@]*?(?P<action_name>[^/@]+)(?(1)|@[\w./-]+)$"
 )
 
 _reusable_workflow_regex = re.compile(
-    r"^(?a:(\.)|[\w-]+/[\w-]+)/\.github/workflows/[^/]+\.yml(?(1)|@[\w.-]+)$"
+    r"^(?a:(\.)|[\w-]+/[\w-]+)/\.github/workflows/[^/]+\.yml(?(1)|@[\w.-/]+)$"
 )
 
 

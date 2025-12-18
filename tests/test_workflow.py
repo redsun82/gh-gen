@@ -433,6 +433,8 @@ def test_runs_on_in_worfklow_with_name():
           uses: actions/checkout@v4
           with:
             ref: dev
+        - name: Action
+          uses: some/action@a/branch
         - name: My action
           uses: ./my_action
           with:
@@ -460,6 +462,7 @@ def test_steps():
         run("echo $WHO").env(WHO="world")
         step("catastrophe").run("echo oh no").if_("failure()")
         uses("actions/checkout@v4").with_(ref="dev")
+        uses("some/action@a/branch")
         uses("./my_action").with_(arg_1="foo", arg__2="bar", UPPERCASE_ARG=42).with_(
             (("arg_3", "baz"),)
         )
@@ -653,8 +656,8 @@ def test_inputs():
       test_input_underscores:
         runs-on: ubuntu-latest
         steps:
-        - run: echo ${{ inputs.my-input }} ${{ inputs.my_other_input }} ${{ inputs.yet_another_input
-            }}
+        - run: echo ${{ inputs.my-input }} ${{ inputs.my_other_input }} ${{ 
+            inputs.yet_another_input }}
     """
 )
 def test_input_underscores():
@@ -973,8 +976,8 @@ def test_explicit_job_outputs():
             description: bla bla
             value: ${{ jobs.j1.outputs.one }}
           TWO:
-            value: ${{ jobs.j2.result == 'success' && jobs.j1.outputs.two || jobs.j2.outputs.three
-              }}
+            value: ${{ jobs.j2.result == 'success' && jobs.j1.outputs.two || 
+              jobs.j2.outputs.three }}
     defaults:
       run:
         shell: bash
@@ -1221,6 +1224,10 @@ def test_strategy_as_context():
           a: ${{ secrets.baz }}
           b: ${{ secrets.bazz }}
           MY_SECRET: ${{ secrets.MY_SECRET }}
+      j5:
+        uses: foo/bar/.github/workflows/workflow.yml@feature/branch
+        with:
+          input1: value1
     """
 )
 def test_call():
@@ -1246,6 +1253,12 @@ def test_call():
             a=secrets.baz,
             b=secrets.bazz,
             MY_SECRET=secrets.MY_SECRET,
+        )
+
+    @job
+    def j5():
+        uses("foo/bar/.github/workflows/workflow.yml@feature/branch").with_(
+            input1="value1"
         )
 
 
