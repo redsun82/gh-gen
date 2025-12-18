@@ -969,7 +969,7 @@ _action_regex = re.compile(
 )
 
 _reusable_workflow_regex = re.compile(
-    r"^(?a:(\.)|[\w-]+/[\w-]+)/\.github/workflows/[^/]+\.yml(?(1)|@[\w.-/]+)$"
+    r"^(?a:(\.)|[\w-]+/[\w-]+)/\.github/workflows/[\w.-]+\.ya?ml(?(1)|@[\w/.-]+)$"
 )
 
 
