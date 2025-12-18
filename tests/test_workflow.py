@@ -1261,6 +1261,32 @@ def test_call():
             input1="value1"
         )
 
+@expect(
+    """\
+    # generated from test_workflow.py::test_auto_call
+    on:
+      workflow_dispatch: {}
+    defaults:
+      run:
+        shell: bash
+    jobs:
+      test_auto_call:
+        uses: foo/bar/.github/workflows/workflow.yml@feature/branch
+        with:
+          input1: value1
+        secrets:
+          MY_SECRET: ${{ secrets.MY_SECRET }}
+    """
+)
+def test_auto_call():
+    on.workflow_dispatch()
+
+    uses("foo/bar/.github/workflows/workflow.yml@feature/branch").with_(
+        input1="value1"
+    ).secrets(
+        MY_SECRET=secrets.MY_SECRET,
+    )
+
 
 @expect(
     """\

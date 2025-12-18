@@ -744,8 +744,9 @@ class _OnUpdater(_Updater):
     def workflow_call(self) -> WorkflowCall:
         return self._sub_updater(self._WorkflowCall, "workflow_call")
 
+    @property
     def delete(self) -> typing.Self:
-        return self._update("delete", _value, Trigger())
+        return self._sub_updater(self._WorkflowCall, "delete")
 
 
 on = _OnUpdater(_get_workflow, ("on",))
