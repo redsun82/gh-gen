@@ -20,7 +20,7 @@ class Expr(abc.ABC):
     def _formula(self) -> str:
         """Returns the syntax of this `Expr` with ref markers removed"""
         return self._syntax.replace("\0", "")
-    
+
     @property
     def _access(self) -> "Expr":
         return self
@@ -102,7 +102,7 @@ class Expr(abc.ABC):
 
     def __eq__(self, other: typing.Any) -> "Expr":
         return BinOpExpr(self._access, self._coerce(other), "==")
-    
+
     def __ne__(self, other: typing.Any) -> "Expr":
         return BinOpExpr(self._access, self._coerce(other), "!=")
 
@@ -387,8 +387,6 @@ class ProxyExpr(Expr):
         if item.startswith("_"):
             raise AttributeError(item)
         return getattr(self._access, item)
-
-
 
 
 @dataclasses.dataclass(eq=False)

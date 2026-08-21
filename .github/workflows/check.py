@@ -4,7 +4,7 @@ from actions import *
 
 @workflow
 def check():
-    on.pull_request().push()
+    on.pull_request().push().workflow_dispatch()
     checkout()
     setup_uv()
     pre_commit().id("Check")
