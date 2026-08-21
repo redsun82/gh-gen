@@ -793,6 +793,10 @@ def if_(condition: Value):
     _update_element(_get_job, "if_", _value, condition)
 
 
+def timeout_minutes(value: Value):
+    _update_element(_get_job, "timeout_minutes", _value, value)
+
+
 def environment(name: Value, *, url: Value | None = None):
     value = name if url is None else Environment(name=name, url=url)
     _update_element(_get_job, "environment", _value, value)
@@ -1180,6 +1184,7 @@ class _StepUpdater(ProxyExpr, _IdElementUpdater[Step]):
         if_: Value | None = None,
         env: dict[str, Value] | None = None,
         continue_on_error: bool | None = None,
+        timeout_minutes: Value | None = None,
         uses: str | None = None,
         shell: Value | None = None,
         working_directory: Value | None = None,
@@ -1192,6 +1197,7 @@ class _StepUpdater(ProxyExpr, _IdElementUpdater[Step]):
             .id(id)
             .if_(if_)
             .continue_on_error(continue_on_error)
+            .timeout_minutes(timeout_minutes)
             .needs(needs)
             .env(env)
             .shell(shell)
@@ -1277,6 +1283,9 @@ class _StepUpdater(ProxyExpr, _IdElementUpdater[Step]):
 
     def continue_on_error(self, value: Value = True) -> typing.Self:
         return self._update("continue_on_error", _value, value)
+
+    def timeout_minutes(self, value: Value) -> typing.Self:
+        return self._update("timeout_minutes", _value, value)
 
     def with_(
         self,

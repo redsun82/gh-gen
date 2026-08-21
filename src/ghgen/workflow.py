@@ -358,6 +358,7 @@ class Step(Element):
     name: Value
     if_: Value
     continue_on_error: Value
+    timeout_minutes: Value
     run: Value
     env: dict[str, Value]
     uses: str
@@ -496,6 +497,7 @@ class Job(Element):
     services: list[Service]
     outputs: dict[str, Value]
     strategy: Strategy
+    timeout_minutes: Value
     env: dict[str, Value]
     defaults: JobDefaults
     steps: list[Step]

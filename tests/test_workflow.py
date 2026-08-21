@@ -1646,3 +1646,29 @@ def test_delete_trigger():
     on.delete()
 
     step.run("")
+
+
+@expect(
+    """\
+    # generated from test_workflow.py::test_timeout_minutes
+    on:
+      workflow_dispatch: {}
+    defaults:
+      run:
+        shell: bash
+    jobs:
+      my_job:
+        runs-on: ubuntu-latest
+        timeout-minutes: 30
+        steps:
+        - timeout-minutes: 5
+          run: echo hello
+    """
+)
+def test_timeout_minutes():
+    on.workflow_dispatch()
+
+    @job
+    def my_job():
+        timeout_minutes(30)
+        run("echo hello").timeout_minutes(5)
