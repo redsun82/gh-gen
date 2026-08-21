@@ -352,6 +352,26 @@ def test_multiline_run_code_dedented():
 
 @expect(
     """\
+    # generated from test_workflow.py::test_run_non_string_value
+    on:
+      workflow_dispatch: {}
+    defaults:
+      run:
+        shell: bash
+    jobs:
+      test_run_non_string_value:
+        runs-on: ubuntu-latest
+        steps:
+        - run: 5
+    """
+)
+def test_run_non_string_value():
+    on.workflow_dispatch()
+    run(5)
+
+
+@expect(
+    """\
     # generated from test_workflow.py::test_strategy_with_cross_matrix
     on:
       workflow_dispatch: {}

@@ -126,7 +126,7 @@ def test_wrong_input(error):
 def test_unexpected_step_outputs(error):
     on.workflow_dispatch()
     x = step("x")
-    error("`foo` was not declared in step `x`, use `returns()` declare it")
+    error("`foo` was not declared in step `x`, use `outputs()` to declare it")
     step("y").run(x.outputs.foo)
 
 
@@ -138,7 +138,7 @@ def test_wrong_outputs(error):
     def j1():
         x = step("x")
         error(
-            "step `x` passed to `outputs`, but no outputs were declared on it. Use `returns()` to do so"
+            "step `x` passed to `outputs`, but no outputs were declared on it. Use `outputs()` to do so"
         )
         outputs(x)
 
@@ -147,7 +147,7 @@ def test_wrong_outputs(error):
         x = step("x").outputs("foo")
         y = step("y")
         error(
-            "step `y` passed to `outputs`, but no outputs were declared on it. Use `returns()` to do so"
+            "step `y` passed to `outputs`, but no outputs were declared on it. Use `outputs()` to do so"
         )
         outputs(x, y)
 
@@ -170,7 +170,7 @@ def test_wrong_outputs(error):
 def test_undeclared_step_output(error):
     on.workflow_dispatch()
     x = step("step1").outputs("foo")
-    error("`bar` was not declared in step `x`, use `returns()` declare it")
+    error("`bar` was not declared in step `x`, use `outputs()` to declare it")
     step("step2").run(x.outputs.bar)
 
 

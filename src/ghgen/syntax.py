@@ -1407,7 +1407,7 @@ def _dump_step_outputs(s: Step):
         )
     else:
         _ctx.error(
-            f"step `{id}` passed to `outputs`, but no outputs were declared on it. Use `returns()` to do so",
+            f"step `{id}` passed to `outputs`, but no outputs were declared on it. Use `outputs()` to do so",
         )
 
 
