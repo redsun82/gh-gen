@@ -345,7 +345,8 @@ class On(Element):
 def _flow_text(d: dict, *keys: str) -> dict:
     for k in keys:
         v = d.get(k)
-        if v is None or "\n" not in v:
+        # only strings get literal-block treatment; numeric `Value`s serialize as-is
+        if not isinstance(v, str) or "\n" not in v:
             continue
         if v[-1] != "\n":
             v += "\n"
@@ -396,16 +397,16 @@ class Step(Element):
 
 
 class Matrix(Element):
-    include: list[dict[str, str]]
-    exclude: list[dict[str, str]]
-    values: dict[str, list[str]]
+    include: list[dict[str, Value]]
+    exclude: list[dict[str, Value]]
+    values: dict[str, list[Value]]
 
     def __init__(
         self,
         *,
-        include: list[dict[str, str]] = None,
-        exclude: list[dict[str, str]] = None,
-        **values: list[str],
+        include: list[dict[str, Value]] = None,
+        exclude: list[dict[str, Value]] = None,
+        **values: list[Value],
     ):
         self.include = include
         self.exclude = exclude

@@ -187,6 +187,74 @@ def test_local(repo, monkeypatch):
         """)
 
 
+def test_update_regenerates_workflows(repo, mock_gh_api_call):
+    config = repo.config("""\
+        uses:
+            repo: owner/repo@v2
+        """)
+    lock = repo.lock()
+    repo.file(
+        ".github/workflows/wf.py",
+        """\
+        from src.ghgen.syntax import *
+
+
+        @workflow
+        def wf():
+            on.push()
+            run("echo hello")
+        """,
+    )
+    workflow_yml = repo.file(".github/workflows/wf.yml")
+    mock_gh_api_call(
+        "owner/repo",
+        "v2",
+        "sha_v2",
+        """\
+        name: My Action
+        inputs:
+            an-input:
+                required: false
+        """,
+    )
+    # `update` fetches the action *and* regenerates the workflow in one shot
+    assert main(["update", "-v"]) == 0
+    config.expect_unchanged()
+    lock.expect_diff("""\
+        @@ -0,0 +1,16 @@
+        +actions:
+        +- pinned: true
+        +  id: repo
+        +  name: My Action
+        +  inputs:
+        +  - name: an_input
+        +    id: an-input
+        +    required: false
+        +  outputs: []
+        +  owner: owner
+        +  repo: repo
+        +  path: ''
+        +  ref: v2
+        +  resolved-ref: v2
+        +  sha: sha_v2
+        +  trusted: false
+        """)
+    workflow_yml.expect_diff("""\
+        @@ -0,0 +1,11 @@
+        +# generated from wf.py::wf
+        +on:
+        +  push: {}
+        +defaults:
+        +  run:
+        +    shell: bash
+        +jobs:
+        +  wf:
+        +    runs-on: ubuntu-latest
+        +    steps:
+        +    - run: echo hello
+        """)
+
+
 class MockedGhApi:
     def __init__(self, monkeypatch):
         self.calls = {}

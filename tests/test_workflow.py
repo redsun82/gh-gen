@@ -325,6 +325,24 @@ def test_multiline_run_code_dedented():
 
 
 @expect("""\
+    # generated from test_workflow.py::test_run_non_string_value
+    on:
+      workflow_dispatch: {}
+    defaults:
+      run:
+        shell: bash
+    jobs:
+      test_run_non_string_value:
+        runs-on: ubuntu-latest
+        steps:
+        - run: 5
+    """)
+def test_run_non_string_value():
+    on.workflow_dispatch()
+    run(5)
+
+
+@expect("""\
     # generated from test_workflow.py::test_strategy_with_cross_matrix
     on:
       workflow_dispatch: {}
@@ -1724,3 +1742,47 @@ def test_run_name():
     run_name(t"Deploy by {github.actor}")
     on.workflow_dispatch()
     step.run("")
+
+
+@expect("""\
+    # generated from test_workflow.py::test_runs_on_single_label_string
+    on:
+      workflow_dispatch: {}
+    defaults:
+      run:
+        shell: bash
+    jobs:
+      my_job:
+        runs-on:
+          labels:
+          - self-hosted
+    """)
+def test_runs_on_single_label_string():
+    on.workflow_dispatch()
+
+    @job
+    def my_job():
+        # single string is accepted as a one-element label list
+        runs_on(labels="self-hosted")
+
+
+@expect("""\
+    # generated from test_workflow.py::test_job_continue_on_error_default_true
+    on:
+      workflow_dispatch: {}
+    defaults:
+      run:
+        shell: bash
+    jobs:
+      my_job:
+        runs-on: ubuntu-latest
+        continue-on-error: true
+    """)
+def test_job_continue_on_error_default_true():
+    on.workflow_dispatch()
+
+    @job
+    def my_job():
+        runs_on("ubuntu-latest")
+        # no argument defaults to True
+        continue_on_error()

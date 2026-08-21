@@ -53,11 +53,11 @@ def generate_workflow(
     return output
 
 
-def run(opts: argparse.Namespace):
-    sync(opts)
+def generate_all(opts: argparse.Namespace) -> int:
+    """Generate workflows from the discovered inputs, without syncing the lock file."""
     sys.path.extend(map(str, opts.includes))
     sys.modules["ghgen"] = sys.modules[__name__]
-    inputs = opts.inputs or opts.includes
+    inputs = getattr(opts, "inputs", None) or opts.includes
     failed = False
     found = False
     for i in inputs:
@@ -85,3 +85,8 @@ def run(opts: argparse.Namespace):
     if failed:
         return 1
     return 0
+
+
+def run(opts: argparse.Namespace):
+    sync(opts)
+    return generate_all(opts)

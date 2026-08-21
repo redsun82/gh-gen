@@ -126,7 +126,7 @@ def test_wrong_input(error):
 def test_unexpected_step_outputs(error):
     on.workflow_dispatch()
     x = step("x")
-    error("`foo` was not declared in step `x`, use `returns()` declare it")
+    error("`foo` was not declared in step `x`, use `outputs()` to declare it")
     step("y").run(x.outputs.foo)
 
 
@@ -138,7 +138,7 @@ def test_wrong_outputs(error):
     def j1():
         x = step("x")
         error(
-            "step `x` passed to `outputs`, but no outputs were declared on it. Use `returns()` to do so"
+            "step `x` passed to `outputs`, but no outputs were declared on it. Use `outputs()` to do so"
         )
         outputs(x)
 
@@ -147,7 +147,7 @@ def test_wrong_outputs(error):
         x = step("x").outputs("foo")
         y = step("y")
         error(
-            "step `y` passed to `outputs`, but no outputs were declared on it. Use `returns()` to do so"
+            "step `y` passed to `outputs`, but no outputs were declared on it. Use `outputs()` to do so"
         )
         outputs(x, y)
 
@@ -170,7 +170,7 @@ def test_wrong_outputs(error):
 def test_undeclared_step_output(error):
     on.workflow_dispatch()
     x = step("step1").outputs("foo")
-    error("`bar` was not declared in step `x`, use `returns()` declare it")
+    error("`bar` was not declared in step `x`, use `outputs()` to declare it")
     step("step2").run(x.outputs.bar)
 
 
@@ -544,3 +544,49 @@ def test_too_many_inputs_on_workflow_dispatch(error):
     on.workflow_dispatch.input(id="too_much")
 
     run("")
+
+
+@expect_errors
+def test_non_representable_env_value(error):
+    on.workflow_dispatch()
+
+    error(
+        "expected `env` to be of type `dict[str, str | bool | int | float | ghgen.expr.Expr] | None`, got `{'BAD': {1}}` of type `dict`"
+    )
+    env(BAD={1})
+
+    run("")
+
+
+@expect_errors
+def test_non_representable_matrix_value(error):
+    on.workflow_dispatch()
+
+    @job
+    def j():
+        error(
+            "expected `values` to be of type `dict[str, list[str | bool | int | float | ghgen.expr.Expr]] | None`, got `{'node': [{1}]}` of type `dict`"
+        )
+        strategy.matrix(node=[{1}])
+        run("")
+
+
+@expect_errors
+def test_run_name_outside_workflow(error):
+    on.workflow_dispatch()
+
+    @job
+    def j():
+        runs_on("ubuntu-latest")
+        error("`run_name` must be used in a workflow")
+        run_name("nope")
+
+
+@expect_errors
+def test_runs_on_runner_with_labels_conflict(error):
+    on.workflow_dispatch()
+
+    @job
+    def j():
+        error("job `j` cannot set `runs-on` with both a runner and `group`/`labels`")
+        runs_on("ubuntu-latest", labels=["self-hosted"])

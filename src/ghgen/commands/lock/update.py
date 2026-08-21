@@ -1,8 +1,9 @@
 import argparse
 
 from .utils import sync_lock_data
+from ..generate import generate_all
 
-help = "update action dependencies"
+help = "update action dependencies and regenerate workflows"
 
 
 def add_arguments(parser: argparse.ArgumentParser):
@@ -18,7 +19,7 @@ def add_arguments(parser: argparse.ArgumentParser):
 
 
 def run(args: argparse.Namespace):
-    """Update action dependencies in the lock file."""
+    """Update action dependencies in the lock file and regenerate workflows."""
 
     actions = args.actions
     if actions:
@@ -31,3 +32,4 @@ def run(args: argparse.Namespace):
         actions = "all"
 
     sync_lock_data(args, actions)
+    return generate_all(args)
