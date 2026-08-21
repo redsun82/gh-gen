@@ -656,8 +656,8 @@ def test_inputs():
       test_input_underscores:
         runs-on: ubuntu-latest
         steps:
-        - run: echo ${{ inputs.my-input }} ${{ inputs.my_other_input }} ${{ 
-            inputs.yet_another_input }}
+        - run: echo ${{ inputs.my-input }} ${{ inputs.my_other_input }} ${{ inputs.yet_another_input
+            }}
     """
 )
 def test_input_underscores():
@@ -976,8 +976,8 @@ def test_explicit_job_outputs():
             description: bla bla
             value: ${{ jobs.j1.outputs.one }}
           TWO:
-            value: ${{ jobs.j2.result == 'success' && jobs.j1.outputs.two || 
-              jobs.j2.outputs.three }}
+            value: ${{ jobs.j2.result == 'success' && jobs.j1.outputs.two || jobs.j2.outputs.three
+              }}
     defaults:
       run:
         shell: bash
@@ -1260,6 +1260,7 @@ def test_call():
         uses("foo/bar/.github/workflows/workflow.yml@feature/branch").with_(
             input1="value1"
         )
+
 
 @expect(
     """\

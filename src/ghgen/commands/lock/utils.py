@@ -263,8 +263,6 @@ class ActionDescription(typing.NamedTuple):
     pin: bool
     trust: bool
     name: str | None
-      
-
 
 
 def sync_lock_data(
@@ -290,10 +288,18 @@ def sync_lock_data(
         case _:
             assert False, "actions_to_update must be a list, 'all', or 'changed'"
 
-    def get_description(id: str, spec: str, name: str | None=None, pin: bool | None=None) -> bool:
+    def get_description(
+        id: str, spec: str, name: str | None = None, pin: bool | None = None
+    ) -> bool:
         owner, _, _ = spec.partition("/")
         trusted = owner in args.config.trusted_owners
-        return ActionDescription(id, spec, pin=pin if pin is not None else not trusted, trust=trusted, name=name)
+        return ActionDescription(
+            id,
+            spec,
+            pin=pin if pin is not None else not trusted,
+            trust=trusted,
+            name=name,
+        )
 
     def get_pinned_value(request: bool | None, trusted: bool) -> bool:
         return request if request is not None else not trusted
