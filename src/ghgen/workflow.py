@@ -345,7 +345,8 @@ class On(Element):
 def _flow_text(d: dict, *keys: str) -> dict:
     for k in keys:
         v = d.get(k)
-        if v is None or "\n" not in v:
+        # only strings get literal-block treatment; numeric `Value`s serialize as-is
+        if not isinstance(v, str) or "\n" not in v:
             continue
         if v[-1] != "\n":
             v += "\n"
