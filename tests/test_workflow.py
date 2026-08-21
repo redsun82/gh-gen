@@ -4,8 +4,7 @@ from conftest import expect
 from ghgen.syntax import *
 
 
-@expect(
-    """\
+@expect("""\
     # generated from test_workflow.py::test_basic
     name: My workflow
     on:
@@ -30,8 +29,7 @@ from ghgen.syntax import *
         runs-on: ubuntu-latest
         steps:
         - run: ''
-    """
-)
+    """)
 def test_basic():
     name("My workflow")
     on.pull_request(branches=["main"])
@@ -41,8 +39,7 @@ def test_basic():
     run("")
 
 
-@expect(
-    """\
+@expect("""\
     # generated from test_workflow.py::test_pull_request
     on:
       pull_request:
@@ -66,8 +63,7 @@ def test_basic():
         runs-on: ubuntu-latest
         steps:
         - run: ''
-    """
-)
+    """)
 def test_pull_request():
     on.pull_request(
         types=["opened", "reopened"],
@@ -79,8 +75,7 @@ def test_pull_request():
     run("")
 
 
-@expect(
-    """\
+@expect("""\
     # generated from test_workflow.py::test_merge
     on:
       pull_request:
@@ -96,16 +91,14 @@ def test_pull_request():
         runs-on: ubuntu-latest
         steps:
         - run: ''
-    """
-)
+    """)
 def test_merge():
     on.pull_request(branches=["main"])
     on.pull_request(paths=["foo/**"])
     run("")
 
 
-@expect(
-    """\
+@expect("""\
     # generated from test_workflow.py::test_job
     on:
       workflow_dispatch: {}
@@ -117,8 +110,7 @@ def test_merge():
         name: My job
         env:
           FOO: bar
-    """
-)
+    """)
 def test_job():
     on.workflow_dispatch()
 
@@ -128,8 +120,7 @@ def test_job():
         env(FOO="bar")
 
 
-@expect(
-    """\
+@expect("""\
     # generated from test_workflow.py::test_jobs
     on:
       workflow_dispatch: {}
@@ -145,8 +136,7 @@ def test_job():
         name: Second job
         env:
           BAZ: bazz
-    """
-)
+    """)
 def test_jobs():
     on.workflow_dispatch()
 
@@ -161,8 +151,7 @@ def test_jobs():
         env(BAZ="bazz")
 
 
-@expect(
-    """\
+@expect("""\
     # generated from test_workflow.py::test_job_runs_on
     on:
       workflow_dispatch: {}
@@ -172,8 +161,7 @@ def test_jobs():
     jobs:
       my_job:
         runs-on: windows-latest
-    """
-)
+    """)
 def test_job_runs_on():
     on.workflow_dispatch()
 
@@ -182,8 +170,7 @@ def test_job_runs_on():
         runs_on("windows-latest")
 
 
-@expect(
-    """\
+@expect("""\
     # generated from test_workflow.py::test_runs_on_group
     on:
       workflow_dispatch: {}
@@ -194,8 +181,7 @@ def test_job_runs_on():
       my_job:
         runs-on:
           group: my-group
-    """
-)
+    """)
 def test_runs_on_group():
     on.workflow_dispatch()
 
@@ -204,8 +190,7 @@ def test_runs_on_group():
         runs_on(group="my-group")
 
 
-@expect(
-    """\
+@expect("""\
     # generated from test_workflow.py::test_runs_on_labels
     on:
       workflow_dispatch: {}
@@ -219,8 +204,7 @@ def test_runs_on_group():
           - self-hosted
           - linux
           - x64
-    """
-)
+    """)
 def test_runs_on_labels():
     on.workflow_dispatch()
 
@@ -229,8 +213,7 @@ def test_runs_on_labels():
         runs_on(labels=["self-hosted", "linux", "x64"])
 
 
-@expect(
-    """\
+@expect("""\
     # generated from test_workflow.py::test_runs_on_group_and_labels
     on:
       workflow_dispatch: {}
@@ -243,8 +226,7 @@ def test_runs_on_labels():
           group: my-group
           labels:
           - linux
-    """
-)
+    """)
 def test_runs_on_group_and_labels():
     on.workflow_dispatch()
 
@@ -253,8 +235,7 @@ def test_runs_on_group_and_labels():
         runs_on(group="my-group", labels=["linux"])
 
 
-@expect(
-    """\
+@expect("""\
     # generated from test_workflow.py::test_runs_on_labels_positional
     on:
       workflow_dispatch: {}
@@ -267,8 +248,7 @@ def test_runs_on_group_and_labels():
         - self-hosted
         - linux
         - x64
-    """
-)
+    """)
 def test_runs_on_labels_positional():
     on.workflow_dispatch()
 
@@ -277,8 +257,7 @@ def test_runs_on_labels_positional():
         runs_on(["self-hosted", "linux", "x64"])
 
 
-@expect(
-    """\
+@expect("""\
     # generated from test_workflow.py::test_job_continue_on_error
     on:
       workflow_dispatch: {}
@@ -289,8 +268,7 @@ def test_runs_on_labels_positional():
       my_job:
         runs-on: ubuntu-latest
         continue-on-error: true
-    """
-)
+    """)
 def test_job_continue_on_error():
     on.workflow_dispatch()
 
@@ -300,8 +278,7 @@ def test_job_continue_on_error():
         continue_on_error(True)
 
 
-@expect(
-    """\
+@expect("""\
     # generated from test_workflow.py::test_job_continue_on_error_expr
     on:
       workflow_dispatch: {}
@@ -312,8 +289,7 @@ def test_job_continue_on_error():
       my_job:
         runs-on: ubuntu-latest
         continue-on-error: ${{ github.event_name == 'push' }}
-    """
-)
+    """)
 def test_job_continue_on_error_expr():
     on.workflow_dispatch()
 
@@ -323,8 +299,7 @@ def test_job_continue_on_error_expr():
         continue_on_error(github.event_name == "push")
 
 
-@expect(
-    """\
+@expect("""\
     # generated from test_workflow.py::test_multiline_run_code_dedented
     on:
       workflow_dispatch: {}
@@ -339,8 +314,7 @@ def test_job_continue_on_error_expr():
             echo one
             echo two
             echo three
-    """
-)
+    """)
 def test_multiline_run_code_dedented():
     on.workflow_dispatch()
     run("""
@@ -350,8 +324,7 @@ def test_multiline_run_code_dedented():
     """) # fmt: skip
 
 
-@expect(
-    """\
+@expect("""\
     # generated from test_workflow.py::test_strategy_with_cross_matrix
     on:
       workflow_dispatch: {}
@@ -367,19 +340,17 @@ def test_multiline_run_code_dedented():
             y: [a, b, c]
         steps:
         - run: ${{ matrix.x }}, ${{ matrix.y }}
-    """
-)
+    """)
 def test_strategy_with_cross_matrix():
     on.workflow_dispatch()
 
     @job
     def a_job():
         strategy.matrix(x=[1, 2, 3], y=["a", "b", "c"])
-        run(f"{matrix.x}, {matrix.y}")
+        run(t"{matrix.x}, {matrix.y}")
 
 
-@expect(
-    """\
+@expect("""\
     # generated from test_workflow.py::test_strategy_with_include_exclude_matrix
     on:
       workflow_dispatch: {}
@@ -399,8 +370,7 @@ def test_strategy_with_cross_matrix():
             - {x: 1, y: a}
         steps:
         - run: ${{ matrix.x }}, ${{ matrix.y }}, ${{ matrix.z }}
-    """
-)
+    """)
 def test_strategy_with_include_exclude_matrix():
     on.workflow_dispatch()
 
@@ -412,11 +382,10 @@ def test_strategy_with_include_exclude_matrix():
             exclude=[{"x": 1, "y": "a"}],
             include=[{"x": 100, "y": "z", "z": 42}],
         )
-        run(f"{matrix.x}, {matrix.y}, {matrix.z}")
+        run(t"{matrix.x}, {matrix.y}, {matrix.z}")
 
 
-@expect(
-    """\
+@expect("""\
     # generated from test_workflow.py::test_strategy_with_fail_fast_and_max_parallel
     on:
       workflow_dispatch: {}
@@ -434,19 +403,17 @@ def test_strategy_with_include_exclude_matrix():
           max-parallel: 5
         steps:
         - run: ${{ matrix.x }}, ${{ matrix.y }}
-    """
-)
+    """)
 def test_strategy_with_fail_fast_and_max_parallel():
     on.workflow_dispatch()
 
     @job
     def a_job():
         strategy.matrix(x=[1, 2, 3], y=["a", "b", "c"]).fail_fast().max_parallel(5)
-        run(f"{matrix.x}, {matrix.y}")
+        run(t"{matrix.x}, {matrix.y}")
 
 
-@expect(
-    """\
+@expect("""\
     # generated from test_workflow.py::test_strategy_in_workflow
     on:
       workflow_dispatch: {}
@@ -466,16 +433,14 @@ def test_strategy_with_fail_fast_and_max_parallel():
             - {x: 2, y: b}
         steps:
         - run: ${{ matrix.x }}, ${{ matrix.y }}, ${{ matrix.z }}
-    """
-)
+    """)
 def test_strategy_in_workflow():
     on.workflow_dispatch()
     strategy.matrix(x=[1, 2, 3], y=["a", "b"]).include(z=42).exclude(x=2, y="b")
-    run(f"{matrix.x}, {matrix.y}, {matrix.z}")
+    run(t"{matrix.x}, {matrix.y}, {matrix.z}")
 
 
-@expect(
-    """\
+@expect("""\
     # generated from test_workflow.py::test_matrix_from_input
     on:
       workflow_dispatch:
@@ -496,17 +461,15 @@ def test_strategy_in_workflow():
         - name: Fail
           if: contains(inputs.i, 'failed')
           run: ''
-    """
-)
+    """)
 def test_matrix_from_input():
     i = on.workflow_dispatch.input()
     strategy.matrix(fromJson(i))
-    run(f"{matrix.foo}, {matrix.bar}")
+    run(t"{matrix.foo}, {matrix.bar}")
     step("Fail").if_(contains(i, "failed"))
 
 
-@expect(
-    """\
+@expect("""\
     # generated from test_workflow.py::test_runs_on_in_workflow
     on:
       workflow_dispatch: {}
@@ -520,8 +483,7 @@ def test_matrix_from_input():
         runs-on: macos-latest
         env:
           JOB_ENV: 2
-    """
-)
+    """)
 def test_runs_on_in_workflow():
     on.workflow_dispatch()
     env(WORKFLOW_ENV=1)
@@ -529,8 +491,7 @@ def test_runs_on_in_workflow():
     env(JOB_ENV=2)
 
 
-@expect(
-    """\
+@expect("""\
     # generated from test_workflow.py::test_runs_on_in_worfklow_with_name
     name: Foo bar
     on:
@@ -542,16 +503,14 @@ def test_runs_on_in_workflow():
       test_runs_on_in_worfklow_with_name:
         name: Foo bar
         runs-on: macos-latest
-    """
-)
+    """)
 def test_runs_on_in_worfklow_with_name():
     name("Foo bar")
     on.workflow_dispatch()
     runs_on("macos-latest")
 
 
-@expect(
-    """\
+@expect("""\
     # generated from test_workflow.py::test_steps
     on:
       workflow_dispatch: {}
@@ -592,8 +551,7 @@ def test_runs_on_in_worfklow_with_name():
           run: one
         - continue-on-error: value
           run: two
-    """
-)
+    """)
 def test_steps():
     on.workflow_dispatch()
 
@@ -612,8 +570,7 @@ def test_steps():
         run("two").continue_on_error("value")
 
 
-@expect(
-    """\
+@expect("""\
     # generated from test_workflow.py::test_workflow_dispatch_inputs
     on:
       workflow_dispatch:
@@ -649,14 +606,13 @@ def test_steps():
             echo ${{ inputs.bar }}
             echo ${{ inputs.baz }}
             echo ${{ inputs.an-env }}
-    """
-)
+    """)
 def test_workflow_dispatch_inputs():
     foo = on.workflow_dispatch.input.description("a foo").required()
     bar = on.workflow_dispatch.input("a bar").type("boolean")
     baz = on.workflow_dispatch.input.options("a", "b", "c").default("b")
     an_env = on.workflow_dispatch.input.type("environment")
-    run(f"""
+    run(t"""
         echo {foo}
         echo {bar}
         echo {baz}
@@ -664,8 +620,7 @@ def test_workflow_dispatch_inputs():
     """)  # fmt: skip
 
 
-@expect(
-    """\
+@expect("""\
     # generated from test_workflow.py::test_workflow_call
     on:
       workflow_call:
@@ -702,8 +657,7 @@ def test_workflow_dispatch_inputs():
             echo ${{ inputs.foo }}
             echo ${{ inputs.bar }}
             echo ${{ inputs.baz }}
-    """
-)
+    """)
 def test_workflow_call():
     token = on.workflow_call.secret(required=True)
     auth = on.workflow_call.secret("auth if provided")
@@ -711,15 +665,14 @@ def test_workflow_call():
     bar = on.workflow_call.input.type("boolean")
     baz = on.workflow_call.input.options("a", "b", "c").default("b")
 
-    run(f"""
+    run(t"""
         echo {foo}
         echo {bar}
         echo {baz}
     """).if_(token & auth)  # fmt: skip
 
 
-@expect(
-    """\
+@expect("""\
     # generated from test_workflow.py::test_inputs
     on:
       workflow_call:
@@ -761,22 +714,20 @@ def test_workflow_call():
             echo ${{ inputs.foo }}
             echo ${{ inputs.bar }}
             echo ${{ inputs.baz }}
-    """
-)
+    """)
 def test_inputs():
     on.workflow_dispatch().workflow_call()
     foo = on.input("a foo").required()
     bar = on.input.default(42)
     baz = on.input.default(True)
-    run(f"""
+    run(t"""
         echo {foo}
         echo {bar}
         echo {baz}
     """)  # fmt: skip
 
 
-@expect(
-    """\
+@expect("""\
     # generated from test_workflow.py::test_input_underscores
     on:
       workflow_dispatch:
@@ -799,18 +750,16 @@ def test_inputs():
         steps:
         - run: echo ${{ inputs.my-input }} ${{ inputs.my_other_input }} ${{ inputs.yet_another_input
             }}
-    """
-)
+    """)
 def test_input_underscores():
     on.workflow_dispatch()
     my_input = on.input()
     my_other_input = on.input().id("my_other_input")
     yet__another__input = on.input()
-    run(f"echo {my_input} {my_other_input} {yet__another__input}")
+    run(t"echo {my_input} {my_other_input} {yet__another__input}")
 
 
-@expect(
-    """\
+@expect("""\
     # generated from test_workflow.py::test_different_inputs
     on:
       workflow_call:
@@ -831,16 +780,14 @@ def test_input_underscores():
         runs-on: ubuntu-latest
         steps:
         - run: echo ${{ inputs.a }} ${{ inputs.b }}
-    """
-)
+    """)
 def test_different_inputs():
     a = on.workflow_call.input()
     b = on.workflow_dispatch.input()
-    run(f"echo {a} {b}")
+    run(t"echo {a} {b}")
 
 
-@expect(
-    """\
+@expect("""\
     # generated from test_workflow.py::test_id
     on:
       workflow_dispatch: {}
@@ -881,8 +828,7 @@ def test_different_inputs():
             ${{ steps.step-1.outcome }}
             ${{ steps.step-2.outcome }}
             ${{ steps.step-3.outcome }}
-    """
-)
+    """)
 def test_id():
     on.workflow_dispatch()
     x = step.id("one").run("one")
@@ -899,8 +845,7 @@ def test_id():
     step("use anonymous").run(code)
 
 
-@expect(
-    """\
+@expect("""\
     # generated from test_workflow.py::test_outputs_and_dashes
     on:
       workflow_dispatch: {}
@@ -916,21 +861,17 @@ def test_id():
         - run: |
             ${{ steps.x.outputs.an-output }}
             ${{ steps.x.outputs.another-weird_output }}
-    """
-)
+    """)
 def test_outputs_and_dashes():
     on.workflow_dispatch()
     x = run("one").outputs("an-output", "another-weird_output")
-    run(
-        f"""
+    run(t"""
         {x.outputs.an_output}
         {x.outputs.another_weird_output}
-        """
-    )
+        """)
 
 
-@expect(
-    """\
+@expect("""\
     # generated from test_workflow.py::test_step_id_underscores
     on:
       workflow_dispatch: {}
@@ -949,8 +890,7 @@ def test_outputs_and_dashes():
           run: echo three
         - if: steps.my-step && steps.my_other_step && steps.yet_another_step
           run: ''
-    """
-)
+    """)
 def test_step_id_underscores():
     on.workflow_dispatch()
     my_step = run("echo one")
@@ -959,8 +899,7 @@ def test_step_id_underscores():
     run("").if_(my_step & my_other_step & yet__another__step)
 
 
-@expect(
-    """\
+@expect("""\
     # generated from test_workflow.py::test_steps_array
     on:
       workflow_dispatch: {}
@@ -973,8 +912,7 @@ def test_step_id_underscores():
         steps:
         - name: ${{ steps.*.result }}
           run: ''
-    """
-)
+    """)
 def test_steps_array():
     on.workflow_dispatch()
 
@@ -983,8 +921,7 @@ def test_steps_array():
         step(steps._.result)
 
 
-@expect(
-    """\
+@expect("""\
     # generated from test_workflow.py::test_if_expr
     on:
       workflow_dispatch: {}
@@ -1001,8 +938,7 @@ def test_steps_array():
           run: two
         - if: '!steps.x.outputs'
           run: three
-    """
-)
+    """)
 def test_if_expr():
     on.workflow_dispatch()
     x = step.run("one")
@@ -1010,8 +946,7 @@ def test_if_expr():
     step.run("three").if_(~x.outputs)
 
 
-@expect(
-    """\
+@expect("""\
     # generated from test_workflow.py::test_implicit_job_outputs
     on:
       workflow_dispatch: {}
@@ -1049,8 +984,7 @@ def test_if_expr():
         - id: y
           name: y
           run: echo three=c | tee -a $GITHUB_OUTPUT
-    """
-)
+    """)
 def test_implicit_job_outputs():
     on.workflow_dispatch()
 
@@ -1067,8 +1001,7 @@ def test_implicit_job_outputs():
         outputs(x, y, matrix.a)
 
 
-@expect(
-    """\
+@expect("""\
     # generated from test_workflow.py::test_explicit_job_outputs
     on:
       workflow_dispatch: {}
@@ -1094,8 +1027,7 @@ def test_implicit_job_outputs():
         - id: y
           name: y
           run: echo three=c | tee -a $GITHUB_OUTPUT
-    """
-)
+    """)
 def test_explicit_job_outputs():
     on.workflow_dispatch()
 
@@ -1107,8 +1039,7 @@ def test_explicit_job_outputs():
         outputs(foo=x.outputs.one, bar=y.outputs.three, baz=matrix.a)
 
 
-@expect(
-    """\
+@expect("""\
     # generated from test_workflow.py::test_workflow_outputs
     on:
       workflow_call:
@@ -1130,8 +1061,7 @@ def test_explicit_job_outputs():
       j2:
         outputs:
           three: 3
-    """
-)
+    """)
 def test_workflow_outputs():
     one = on.workflow_call.output("bla bla")
     two = on.workflow_call.output(id="TWO")
@@ -1148,8 +1078,7 @@ def test_workflow_outputs():
     two.value((j2.result == "success") & j1.outputs.two | j2.outputs.three)
 
 
-@expect(
-    """\
+@expect("""\
     # generated from test_workflow.py::test_needs
     on:
       workflow_dispatch: {}
@@ -1174,8 +1103,7 @@ def test_workflow_outputs():
         - run: ''
       j4:
         needs: [j1, j3]
-    """
-)
+    """)
 def test_needs():
     on.workflow_dispatch()
 
@@ -1197,8 +1125,7 @@ def test_needs():
         needs(j1, j3)
 
 
-@expect(
-    """\
+@expect("""\
     # generated from test_workflow.py::test_job_as_context
     on:
       workflow_dispatch: {}
@@ -1212,16 +1139,14 @@ def test_needs():
         - run: 'false'
         - if: always()
           run: echo ${{ job.status }}
-    """
-)
+    """)
 def test_job_as_context():
     on.workflow_dispatch()
     run("false")
-    run(f"echo {job.status}").if_(always())
+    run(t"echo {job.status}").if_(always())
 
 
-@expect(
-    """\
+@expect("""\
     # generated from test_workflow.py::test_container
     on:
       workflow_dispatch: {}
@@ -1248,8 +1173,7 @@ def test_job_as_context():
         - run: echo ${{ job.container.id }}
       j2:
         container: {}
-    """
-)
+    """)
 def test_container():
     on.workflow_dispatch()
 
@@ -1257,7 +1181,7 @@ def test_container():
     def j1():
         container("node:18").env(NODE_ENV="development").ports([80])
         container.volumes(["my_docker_volume:/volume_mount"]).options(["--cpus 1"])
-        run(f"echo {job.container.id}")
+        run(t"echo {job.container.id}")
 
     @job
     def j2():
@@ -1266,8 +1190,7 @@ def test_container():
         )
 
 
-@expect(
-    """\
+@expect("""\
     # generated from test_workflow.py::test_services
     on:
       workflow_dispatch: {}
@@ -1291,18 +1214,16 @@ def test_container():
             credentials: {}
             ports:
             - 6379/tcp
-    """
-)
+    """)
 def test_services():
     on.workflow_dispatch()
     service("nginx", image="nginx:latest", ports=["8080:80"])
     service("redis", ports=["6379/tcp"])
-    run(f"echo {job.services.nginx.id}")
-    run(f"echo {job.services.redis.ports[6379]}")
+    run(t"echo {job.services.nginx.id}")
+    run(t"echo {job.services.redis.ports[6379]}")
 
 
-@expect(
-    """\
+@expect("""\
     # generated from test_workflow.py::test_strategy_as_context
     on:
       workflow_dispatch: {}
@@ -1322,12 +1243,11 @@ def test_services():
             echo ${{ strategy }}
             echo ${{ strategy.job-index }}
             echo ${{ strategy.job-total }}
-    """
-)
+    """)
 def test_strategy_as_context():
     on.workflow_dispatch()
     strategy.matrix(a=[1, 2, 3])
-    run(f"""
+    run(t"""
         echo {strategy}
         echo {strategy.fail_fast}
         echo {strategy.max_parallel}
@@ -1336,8 +1256,7 @@ def test_strategy_as_context():
     """)  # fmt: skip
 
 
-@expect(
-    """\
+@expect("""\
     # generated from test_workflow.py::test_call
     on:
       workflow_dispatch: {}
@@ -1369,8 +1288,7 @@ def test_strategy_as_context():
         uses: foo/bar/.github/workflows/workflow.yml@feature/branch
         with:
           input1: value1
-    """
-)
+    """)
 def test_call():
     on.workflow_dispatch()
 
@@ -1403,8 +1321,7 @@ def test_call():
         )
 
 
-@expect(
-    """\
+@expect("""\
     # generated from test_workflow.py::test_auto_call
     on:
       workflow_dispatch: {}
@@ -1418,8 +1335,7 @@ def test_call():
           input1: value1
         secrets:
           MY_SECRET: ${{ secrets.MY_SECRET }}
-    """
-)
+    """)
 def test_auto_call():
     on.workflow_dispatch()
 
@@ -1430,8 +1346,7 @@ def test_auto_call():
     )
 
 
-@expect(
-    """\
+@expect("""\
     # generated from test_workflow.py::test_github_context
     on:
       workflow_dispatch: {}
@@ -1446,22 +1361,18 @@ def test_auto_call():
             echo ${{ github.actor }}
             echo ${{ github.workspace }}
             echo ${{ github.event.sender }}
-    """
-)
+    """)
 def test_github_context():
     on.workflow_dispatch()
 
-    run(
-        f"""
+    run(t"""
         echo {github.actor}
         echo {github.workspace}
         echo {github.event.sender}
-    """
-    )
+    """)
 
 
-@expect(
-    """\
+@expect("""\
     # generated from test_workflow.py::test_permissions
     on:
       workflow_dispatch: {}
@@ -1491,8 +1402,7 @@ def test_github_context():
         runs-on: ubuntu-latest
         steps:
         - run: ''
-    """
-)
+    """)
 def test_permissions():
     on.workflow_dispatch()
     permissions(actions="read", deployments="write", statuses="none")
@@ -1513,8 +1423,7 @@ def test_permissions():
         run("")
 
 
-@expect(
-    """\
+@expect("""\
     # generated from test_workflow.py::test_defaults
     on:
       workflow_dispatch: {}
@@ -1531,8 +1440,7 @@ def test_permissions():
             working-directory: bar
         steps:
         - run: echo hello
-    """
-)
+    """)
 def test_defaults():
     on.workflow_dispatch()
     defaults.run(shell="zsh")
@@ -1544,8 +1452,7 @@ def test_defaults():
         run("echo hello")
 
 
-@expect(
-    """\
+@expect("""\
     # generated from test_workflow.py::test_concurrency
     on:
       workflow_dispatch: {}
@@ -1569,12 +1476,11 @@ def test_defaults():
           group: bar
         steps:
         - run: ''
-    """
-)
+    """)
 def test_concurrency():
     on.workflow_dispatch()
 
-    concurrency.group(f"{github.ref | github.run_id}")
+    concurrency.group(t"{github.ref | github.run_id}")
     concurrency.cancel_in_progress()
 
     @job
@@ -1588,8 +1494,7 @@ def test_concurrency():
         run("")
 
 
-@expect(
-    """\
+@expect("""\
     # generated from test_workflow.py::test_environment
     on:
       workflow_dispatch: {}
@@ -1609,8 +1514,7 @@ def test_concurrency():
           url: https://example.com
         steps:
         - run: ''
-    """
-)
+    """)
 def test_environment():
     on.workflow_dispatch()
 
@@ -1625,8 +1529,7 @@ def test_environment():
         run("")
 
 
-@expect(
-    """\
+@expect("""\
     # generated from test_workflow.py::test_step_comments
     on:
       workflow_dispatch: {}
@@ -1647,17 +1550,14 @@ def test_environment():
           with: # with comment
             foo: bar
             baz: qux
-    """
-)
+    """)
 def test_step_comments():
     on.workflow_dispatch()
 
-    step("foo").run(
-        """
+    step("foo").run("""
         echo 1
         echo 2
-    """
-    ).if_(True).comment(
+    """).if_(True).comment(
         name="name comment",
         run="run comment",
     )
@@ -1667,8 +1567,7 @@ def test_step_comments():
     )
 
 
-@expect(
-    """\
+@expect("""\
     # generated from test_workflow.py::test_many_worfklow_call_inputs
     on:
       workflow_call:
@@ -1714,8 +1613,7 @@ def test_step_comments():
         runs-on: ubuntu-latest
         steps:
         - run: ''
-    """
-)
+    """)
 def test_many_worfklow_call_inputs():
     on.workflow_call()
 
@@ -1725,8 +1623,7 @@ def test_many_worfklow_call_inputs():
     run("")
 
 
-@expect(
-    """\
+@expect("""\
     # generated from test_workflow.py::test_step_working_directory
     on:
       workflow_dispatch: {}
@@ -1739,8 +1636,7 @@ def test_many_worfklow_call_inputs():
         steps:
         - run: echo hello
           working-directory: subdir
-    """
-)
+    """)
 def test_step_working_directory():
     on.workflow_dispatch()
 
@@ -1749,8 +1645,7 @@ def test_step_working_directory():
         step.run("echo hello").working_directory("subdir")
 
 
-@expect(
-    """\
+@expect("""\
     # generated from test_workflow.py::test_format
     on:
       workflow_dispatch: {}
@@ -1762,15 +1657,13 @@ def test_step_working_directory():
         runs-on: ubuntu-latest
         steps:
         - run: "hey: ${{ format('hello {0} {1} {2}', 'one', 2, 'three') }}"
-    """
-)
+    """)
 def test_format():
     on.workflow_dispatch()
-    step.run(f"hey: {format("hello {0} {1} {2}", 'one', 2, 'three')}")
+    step.run(t"hey: {format("hello {0} {1} {2}", 'one', 2, 'three')}")
 
 
-@expect(
-    """\
+@expect("""\
     # generated from test_workflow.py::test_delete_trigger
     on:
       delete: {}
@@ -1782,16 +1675,14 @@ def test_format():
         runs-on: ubuntu-latest
         steps:
         - run: ''
-    """
-)
+    """)
 def test_delete_trigger():
     on.delete()
 
     step.run("")
 
 
-@expect(
-    """\
+@expect("""\
     # generated from test_workflow.py::test_timeout_minutes
     on:
       workflow_dispatch: {}
@@ -1805,8 +1696,7 @@ def test_delete_trigger():
         steps:
         - timeout-minutes: 5
           run: echo hello
-    """
-)
+    """)
 def test_timeout_minutes():
     on.workflow_dispatch()
 
@@ -1816,8 +1706,7 @@ def test_timeout_minutes():
         run("echo hello").timeout_minutes(5)
 
 
-@expect(
-    """\
+@expect("""\
     # generated from test_workflow.py::test_run_name
     run-name: Deploy by ${{ github.actor }}
     on:
@@ -1830,9 +1719,8 @@ def test_timeout_minutes():
         runs-on: ubuntu-latest
         steps:
         - run: ''
-    """
-)
+    """)
 def test_run_name():
-    run_name(f"Deploy by {github.actor}")
+    run_name(t"Deploy by {github.actor}")
     on.workflow_dispatch()
     step.run("")

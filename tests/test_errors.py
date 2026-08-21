@@ -290,10 +290,10 @@ def test_steps_errors(error):
         error("`steps` can only be used while constructing a step or setting outputs")
         env(FOO=steps)
         error("step `x` not defined yet in job `j`")
-        run(f"echo {steps.x.outcome}")
+        run(t"echo {steps.x.outcome}")
         run("").id("x")
         error("step `y` not defined yet in job `j`")
-        step("print self outcome?").run(f" {steps.y.result}").id("y")
+        step("print self outcome?").run(t" {steps.y.result}").id("y")
         return steps.z.outputs
 
 
@@ -421,7 +421,7 @@ def test_any_context_in_wrong_place(error):
     error("no contextual information can be used in `branches`")
     on.pull_request(branches=[vars.BRANCH])
     error("no contextual information can be used in `paths`")
-    on.push(paths=[f"./{vars.PATH}"])
+    on.push(paths=[t"./{vars.PATH}"])
 
     run("")
 
@@ -434,22 +434,22 @@ def test_wrong_permissions(error):
     )
     permissions("read-all", attestations="write")
     error(
-        "expected `permissions` to be of type `Union[ghgen.workflow.Permissions, Literal['read-all', 'write-all'], NoneType]`, got `'foo'` of type `str`"
+        "expected `permissions` to be of type `ghgen.workflow.Permissions | Literal['read-all', 'write-all'] | None`, got `'foo'` of type `str`"
     )
     permissions("foo")
 
     @job
     def j():
         error(
-            "expected `contents` to be of type `Optional[Literal['read', 'write', 'none']]`, got `'bar'` of type `str`"
+            "expected `contents` to be of type `Literal['read', 'write', 'none'] | None`, got `'bar'` of type `str`"
         )
         permissions(contents="bar")
         error(
-            "expected `id_token` to be of type `Optional[Literal['write', 'none']]`, got `'read'` of type `str`"
+            "expected `id_token` to be of type `Literal['write', 'none'] | None`, got `'read'` of type `str`"
         )
         permissions(id_token="read")
         error(
-            "expected `models` to be of type `Optional[Literal['read', 'none']]`, got `'write'` of type `str`"
+            "expected `models` to be of type `Literal['read', 'none'] | None`, got `'write'` of type `str`"
         )
         permissions(models="write")
         run("")

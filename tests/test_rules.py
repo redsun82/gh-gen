@@ -95,7 +95,7 @@ def test_rules_fail_at_start(sut):
 
 
 def test_rules_pass_for_unrelated(sut):
-    assert sut.validate(f"<{x.a}>")
+    assert sut.validate(t"<{x.a}>")
     assert sut.mock.mock_calls == [
         unittest.mock.call.x(),
     ]

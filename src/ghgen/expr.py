@@ -2,12 +2,38 @@ import dataclasses
 import abc
 import functools
 import re
+import textwrap
 import types
 import typing
+import warnings
 import weakref
 import contextlib
 
+try:
+    from string.templatelib import Template, Interpolation
+except ImportError:  # Python < 3.14: t-strings unavailable, f-strings only
+    Template = None
+    Interpolation = None
+
 from .types import RefTree
+
+_fstring_deprecation_emitted = False
+
+
+def _warn_fstring_deprecated() -> None:
+    """Warn once per process when contexts are interpolated via f-strings.
+
+    Only fires on 3.14+ where t-strings (the clean replacement) exist.
+    """
+    global _fstring_deprecation_emitted
+    if _fstring_deprecation_emitted or Template is None:
+        return
+    _fstring_deprecation_emitted = True
+    warnings.warn(
+        'interpolating contexts with f-strings is deprecated; use t-strings (t"...") instead',
+        DeprecationWarning,
+        stacklevel=3,
+    )
 
 
 class Expr(abc.ABC):
@@ -30,9 +56,15 @@ class Expr(abc.ABC):
 
     @staticmethod
     def _instantiate(x: typing.Any) -> typing.Any:
+        if Template is not None and isinstance(x, Template):
+            return Expr._render_template(x)
         match x:
-            case Expr() | str():
+            case Expr():
                 return str(x).replace("\0", "")
+            case str():
+                if "\0" in x:
+                    _warn_fstring_deprecated()
+                return x.replace("\0", "")
             case dict():
                 return {
                     Expr._instantiate(k): Expr._instantiate(v) for k, v in x.items()
@@ -43,11 +75,49 @@ class Expr(abc.ABC):
                 return x
 
     @staticmethod
+    def _render_template(template: "Template") -> str:
+        """Render a t-string into GHA syntax, e.g. `${{ matrix.x }}, ${{ matrix.y }}`."""
+        parts = []
+        for item in template:
+            if isinstance(item, str):
+                parts.append(item)
+            elif isinstance(item.value, Expr):
+                parts.append(str(item.value).replace("\0", ""))
+            else:
+                parts.append(str(Expr._instantiate(item.value)))
+        return "".join(parts)
+
+    @staticmethod
+    def _dedent_template(template: "Template") -> "Template":
+        """`textwrap.dedent` equivalent for t-strings, keeping interpolations intact.
+
+        Leading whitespace only lives in the static string parts, so dedent the
+        parts as a whole (interpolations stand in as opaque, whitespace-free
+        sentinels) and rebuild the template.
+        """
+        sentinel = "\0"
+        shadow = textwrap.dedent(sentinel.join(template.strings).strip("\n"))
+        new_strings = shadow.split(sentinel)
+        parts: list[typing.Any] = []
+        interpolations = template.interpolations
+        for i, s in enumerate(new_strings):
+            parts.append(s)
+            if i < len(interpolations):
+                parts.append(interpolations[i])
+        return Template(*parts)
+
+    @staticmethod
     def _paths(x: typing.Any) -> typing.Generator[tuple[str, ...], None, None]:
+        if Template is not None and isinstance(x, Template):
+            for interpolation in x.interpolations:
+                yield from Expr._paths(interpolation.value)
+            return
         match x:
             case Expr() as e:
                 yield from e._get_paths()
             case str() as s:
+                if "\0" in s:
+                    _warn_fstring_deprecated()
                 for m in re.finditer("\0([a-zA-Z0-9\\-_.]+)", s):
                     yield tuple(m[1].split("."))
             case dict():
@@ -140,6 +210,61 @@ Value = str | bool | int | float | Expr
 
 
 instantiate = Expr._instantiate
+dedent_template = Expr._dedent_template
+
+
+@dataclasses.dataclass(frozen=True, eq=False, repr=False)
+class _RootRewrite(Expr):
+    """`Expr` wrapper that rewrites the leading segment of each ref it wraps.
+
+    Stays an `Expr` (rather than collapsing to a marker string) so rendering
+    keeps flowing through the clean object path.
+    """
+
+    _inner: Expr
+    _from_root: str
+    _to_root: str
+
+    @property
+    def _syntax(self) -> str:
+        return self._inner._syntax.replace(f"\0{self._from_root}", f"\0{self._to_root}")
+
+    def _get_paths(self) -> typing.Generator[tuple[str, ...], None, None]:
+        for path in self._inner._get_paths():
+            if path[:1] == (self._from_root,):
+                yield (self._to_root, *path[1:])
+            else:
+                yield path
+
+
+def rewrite_ref_root(value: typing.Any, from_root: str, to_root: str) -> typing.Any:
+    """Rewrite the leading ref segment of every context in `value`.
+
+    E.g. turn `needs.<id>` into `jobs.<id>` for workflow-call outputs. The
+    rewrite is type-preserving: `Expr` and `Template` values keep their type so
+    they never masquerade as (deprecated) f-string marker strings. Only genuine
+    f-string values (already plain `str` with markers) take the string path.
+    """
+    if isinstance(value, Expr):
+        return _RootRewrite(value, from_root, to_root)
+    if Template is not None and isinstance(value, Template):
+        parts: list[typing.Any] = []
+        for item in value:
+            if isinstance(item, str) or not isinstance(item.value, Expr):
+                parts.append(item)
+            else:
+                parts.append(
+                    Interpolation(
+                        _RootRewrite(item.value, from_root, to_root),
+                        item.expression,
+                        item.conversion,
+                        item.format_spec,
+                    )
+                )
+        return Template(*parts)
+    if isinstance(value, str):
+        return value.replace(f"\0{from_root}", f"\0{to_root}")
+    return value
 
 
 def reftree(x: typing.Any) -> RefTree:

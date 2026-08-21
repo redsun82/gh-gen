@@ -86,7 +86,7 @@ def error(request):
             try:
                 _ = self.actual
                 return True
-            except (AttributeError, AssertionError):
+            except AttributeError, AssertionError:
                 return False
 
         @property
