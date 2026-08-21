@@ -792,6 +792,10 @@ def runs_on(
             f"job `{_ctx.current_job_id}` cannot set `runs-on` as it has already specified `uses` (with `call`)"
         )
     if group is not None or labels is not None:
+        if runner is not None:
+            _ctx.error(
+                f"job `{_ctx.current_job_id}` cannot set `runs-on` with both a runner and `group`/`labels`"
+            )
         value = RunsOn(group=group, labels=_seq("labels", (labels,)))
     else:
         value = runner

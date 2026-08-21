@@ -364,6 +364,16 @@ def test_wrong_calls(error):
         uses("foo")
 
 
+@expect_errors
+def test_runs_on_runner_with_group_or_labels(error):
+    on.workflow_dispatch()
+
+    @job
+    def j():
+        error("job `j` cannot set `runs-on` with both a runner and `group`/`labels`")
+        runs_on("ubuntu-latest", group="my-group")
+
+
 def test_on_must_be_set(error):
     with error:
 
