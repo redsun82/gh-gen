@@ -781,12 +781,25 @@ class _EnvUpdater(ProxyExpr, _Updater[dict[str, Value]]):
 env = _EnvUpdater()
 
 
-def runs_on(runner: Value):
+def runs_on(
+    runner: Value | None = None,
+    *,
+    group: Value | None = None,
+    labels: Value | typing.Iterable[Value] | None = None,
+):
     if _ctx.current_job and _ctx.current_job.uses is not None:
         _ctx.error(
             f"job `{_ctx.current_job_id}` cannot set `runs-on` as it has already specified `uses` (with `call`)"
         )
-    _update_element(_get_job, "runs_on", _value, runner)
+    if group is not None or labels is not None:
+        if runner is not None:
+            _ctx.error(
+                f"job `{_ctx.current_job_id}` cannot set `runs-on` with both a runner and `group`/`labels`"
+            )
+        value = RunsOn(group=group, labels=_seq("labels", (labels,)))
+    else:
+        value = runner
+    _update_element(_get_job, "runs_on", _value, value)
 
 
 def if_(condition: Value):
