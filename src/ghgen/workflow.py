@@ -455,7 +455,7 @@ class Permissions(Element):
     id_token: typing.Literal["write", "none"]
     issues: Permission
     discussions: Permission
-    models: Permission
+    models: typing.Literal["read", "none"]
     packages: Permission
     pages: Permission
     pull_requests: Permission

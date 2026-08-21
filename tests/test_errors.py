@@ -438,6 +438,10 @@ def test_wrong_permissions(error):
             "expected `id_token` to be of type `Optional[Literal['write', 'none']]`, got `'read'` of type `str`"
         )
         permissions(id_token="read")
+        error(
+            "expected `models` to be of type `Optional[Literal['read', 'none']]`, got `'write'` of type `str`"
+        )
+        permissions(models="write")
         run("")
 
 
