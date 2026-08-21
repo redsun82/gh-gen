@@ -746,6 +746,36 @@ def test_inputs():
 
 
 @expect("""\
+    # generated from test_workflow.py::test_input_name_through_helper
+    on:
+      workflow_dispatch:
+        inputs:
+          version:
+            description: the version to release
+            required: true
+            type: string
+    defaults:
+      run:
+        shell: bash
+    jobs:
+      test_input_name_through_helper:
+        runs-on: ubuntu-latest
+        steps:
+        - run: echo releasing ${{ inputs.version }}
+    """)
+def test_input_name_through_helper():
+    # the id is resolved from the assignment (`version`), not the parameter name
+    # (`v`) of the helper the input is only ever used inside
+    on.workflow_dispatch()
+    version = on.input("the version to release").required()
+
+    def use(v):
+        run(t"echo releasing {v}")
+
+    use(version)
+
+
+@expect("""\
     # generated from test_workflow.py::test_input_underscores
     on:
       workflow_dispatch:
