@@ -497,6 +497,7 @@ class Job(Element):
     services: list[Service]
     outputs: dict[str, Value]
     strategy: Strategy
+    continue_on_error: Value
     timeout_minutes: Value
     env: dict[str, Value]
     defaults: JobDefaults

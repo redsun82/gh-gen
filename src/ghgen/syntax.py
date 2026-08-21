@@ -793,6 +793,10 @@ def if_(condition: Value):
     _update_element(_get_job, "if_", _value, condition)
 
 
+def continue_on_error(value: Value = True):
+    _update_element(_get_job, "continue_on_error", _value, value)
+
+
 def timeout_minutes(value: Value):
     _update_element(_get_job, "timeout_minutes", _value, value)
 
