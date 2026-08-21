@@ -756,6 +756,10 @@ def name(name: str):
     _update_element(_get_job_or_workflow, "name", _value, name)
 
 
+def run_name(name: Value):
+    _update_element(_get_workflow, "run_name", _value, name)
+
+
 class _EnvUpdater(ProxyExpr, _Updater[dict[str, Value]]):
     def __init__(self):
         ProxyExpr.__init__(self)

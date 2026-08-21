@@ -1814,3 +1814,25 @@ def test_timeout_minutes():
     def my_job():
         timeout_minutes(30)
         run("echo hello").timeout_minutes(5)
+
+
+@expect(
+    """\
+    # generated from test_workflow.py::test_run_name
+    run-name: Deploy by ${{ github.actor }}
+    on:
+      workflow_dispatch: {}
+    defaults:
+      run:
+        shell: bash
+    jobs:
+      test_run_name:
+        runs-on: ubuntu-latest
+        steps:
+        - run: ''
+    """
+)
+def test_run_name():
+    run_name(f"Deploy by {github.actor}")
+    on.workflow_dispatch()
+    step.run("")

@@ -526,6 +526,7 @@ class WorkflowDefaults(Element):
 
 class Workflow(Element):
     name: Value
+    run_name: Value
     on: On = field(default_factory=On)
     permissions: Permissions | typing.Literal["read-all", "write-all"]
     concurrency: Concurrency
