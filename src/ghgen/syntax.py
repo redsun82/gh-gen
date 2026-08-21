@@ -806,6 +806,10 @@ def if_(condition: Value):
     _update_element(_get_job, "if_", _value, condition)
 
 
+def continue_on_error(value: Value = True):
+    _update_element(_get_job, "continue_on_error", _value, value)
+
+
 def environment(name: Value, *, url: Value | None = None):
     value = name if url is None else Environment(name=name, url=url)
     _update_element(_get_job, "environment", _value, value)

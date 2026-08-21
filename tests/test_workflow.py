@@ -279,6 +279,52 @@ def test_runs_on_labels_positional():
 
 @expect(
     """\
+    # generated from test_workflow.py::test_job_continue_on_error
+    on:
+      workflow_dispatch: {}
+    defaults:
+      run:
+        shell: bash
+    jobs:
+      my_job:
+        runs-on: ubuntu-latest
+        continue-on-error: true
+    """
+)
+def test_job_continue_on_error():
+    on.workflow_dispatch()
+
+    @job
+    def my_job():
+        runs_on("ubuntu-latest")
+        continue_on_error(True)
+
+
+@expect(
+    """\
+    # generated from test_workflow.py::test_job_continue_on_error_expr
+    on:
+      workflow_dispatch: {}
+    defaults:
+      run:
+        shell: bash
+    jobs:
+      my_job:
+        runs-on: ubuntu-latest
+        continue-on-error: ${{ github.event_name == 'push' }}
+    """
+)
+def test_job_continue_on_error_expr():
+    on.workflow_dispatch()
+
+    @job
+    def my_job():
+        runs_on("ubuntu-latest")
+        continue_on_error(github.event_name == "push")
+
+
+@expect(
+    """\
     # generated from test_workflow.py::test_multiline_run_code_dedented
     on:
       workflow_dispatch: {}
