@@ -56,6 +56,22 @@ def _get_user_frame_info() -> inspect.Traceback:
     return inspect.getframeinfo(_get_user_frame())
 
 
+def _representable(val: typing.Any) -> bool:
+    """Whether a value can be serialized to YAML (used to vet container elements).
+
+    Keep the accepted scalar set in sync with `element.asobj`, the serializer.
+    """
+    match val:
+        case str() | bool() | int() | float() | Expr() | Element() | None:
+            return True
+        case list():
+            return all(_representable(v) for v in val)
+        case dict():
+            return all(_representable(k) and _representable(v) for k, v in val.items())
+        case _:
+            return False
+
+
 def _typecheck(val: typing.Any, ty: typing.Type) -> bool:
     origin = typing.get_origin(ty)
     match origin:
@@ -68,9 +84,14 @@ def _typecheck(val: typing.Any, ty: typing.Type) -> bool:
         case typing.Union | types.UnionType:
             return any(_typecheck(val, x) for x in typing.get_args(ty))
         case typing.Literal:
-            options = typing.get_args(ty)
-            assert all(isinstance(o, str) for o in options)
-            return val in options
+            return val in typing.get_args(ty)
+        case _ if origin is list:
+            # element types are intentionally not enforced (they may hold `Expr`s
+            # or numbers vetted later by reftree rules); only reject values that
+            # cannot be serialized at all.
+            return isinstance(val, list) and all(_representable(v) for v in val)
+        case _ if origin is dict:
+            return isinstance(val, dict) and _representable(val)
         case _:
             return isinstance(val, origin)
 
