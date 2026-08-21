@@ -135,6 +135,10 @@ them in sync.
   imports them, and generates one YAML file per `@workflow`-decorated function.
 - The output file is `<function-name>.yml`, written to `--output-directory` (default
   `.github/workflows`). Override the function-derived id with `@workflow(id="my-id")`.
+- **Organize files however you like.** One `.py` file may define several `@workflow`
+  functions, and you can split definitions across multiple files — the include directories
+  are on `sys.path`, so files can import shared helpers, constants, and jobs from sibling
+  modules. Every `@workflow` found, in any scanned file, is generated.
 - Everything you need is exported by `ghgen.syntax`, so `from ghgen.syntax import *` is the
   idiomatic import.
 - **Implicit job.** If you call step/job builders (`run`, `uses`, `runs_on`, …) directly at
