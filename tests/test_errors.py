@@ -569,3 +569,24 @@ def test_non_representable_matrix_value(error):
         )
         strategy.matrix(node=[{1}])
         run("")
+
+
+@expect_errors
+def test_run_name_outside_workflow(error):
+    on.workflow_dispatch()
+
+    @job
+    def j():
+        runs_on("ubuntu-latest")
+        error("`run_name` must be used in a workflow")
+        run_name("nope")
+
+
+@expect_errors
+def test_runs_on_runner_with_labels_conflict(error):
+    on.workflow_dispatch()
+
+    @job
+    def j():
+        error("job `j` cannot set `runs-on` with both a runner and `group`/`labels`")
+        runs_on("ubuntu-latest", labels=["self-hosted"])

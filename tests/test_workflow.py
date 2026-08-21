@@ -1836,3 +1836,51 @@ def test_run_name():
     run_name(f"Deploy by {github.actor}")
     on.workflow_dispatch()
     step.run("")
+
+
+@expect(
+    """\
+    # generated from test_workflow.py::test_runs_on_single_label_string
+    on:
+      workflow_dispatch: {}
+    defaults:
+      run:
+        shell: bash
+    jobs:
+      my_job:
+        runs-on:
+          labels:
+          - self-hosted
+    """
+)
+def test_runs_on_single_label_string():
+    on.workflow_dispatch()
+
+    @job
+    def my_job():
+        # single string is accepted as a one-element label list
+        runs_on(labels="self-hosted")
+
+
+@expect(
+    """\
+    # generated from test_workflow.py::test_job_continue_on_error_default_true
+    on:
+      workflow_dispatch: {}
+    defaults:
+      run:
+        shell: bash
+    jobs:
+      my_job:
+        runs-on: ubuntu-latest
+        continue-on-error: true
+    """
+)
+def test_job_continue_on_error_default_true():
+    on.workflow_dispatch()
+
+    @job
+    def my_job():
+        runs_on("ubuntu-latest")
+        # no argument defaults to True
+        continue_on_error()
