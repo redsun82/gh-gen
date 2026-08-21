@@ -44,13 +44,15 @@ actions:
   - name: github_server_url
     id: github-server-url
     required: false
+  - name: allow_unsafe_pr_checkout
+    id: allow-unsafe-pr-checkout
   outputs:
   - ref
   - commit
   owner: actions
   repo: checkout
   path: ''
-  resolved-ref: v6
+  resolved-ref: v7
   trusted: true
 - pinned: true
   id: pre_commit
@@ -81,6 +83,10 @@ actions:
     required: false
   - name: activate_environment
     id: activate-environment
+  - name: venv_path
+    id: venv-path
+  - name: no_project
+    id: no-project
   - name: working_directory
     id: working-directory
   - name: checksum
@@ -119,8 +125,12 @@ actions:
   - name: manifest_file
     id: manifest-file
     required: false
+  - name: download_from_astral_mirror
+    id: download-from-astral-mirror
   - name: add_problem_matchers
     id: add-problem-matchers
+  - name: quiet
+    id: quiet
   - name: resolution_strategy
     id: resolution-strategy
   outputs:
@@ -128,10 +138,13 @@ actions:
   - uv-path
   - uvx-path
   - cache-hit
+  - cache-key
   - venv
+  - python-version
+  - python-cache-hit
   owner: astral-sh
   repo: setup-uv
   path: ''
-  resolved-ref: v7.1.5
-  sha: ed21f2f24f8dd64503750218de024bcf64c7250a
+  resolved-ref: v10.0.1
+  sha: 20cfd1bf945f4377ade1205e4dbc17946fc9a30d
   trusted: false

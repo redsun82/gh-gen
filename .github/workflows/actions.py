@@ -26,9 +26,10 @@ def checkout(
     submodules: str | None = None,
     set_safe_directory: str | None = None,
     github_server_url: str | None = None,
+    allow_unsafe_pr_checkout: str | None = None,
 ):
     return uses(
-        "actions/checkout@v6"
+        "actions/checkout@v7"
     ).with_((
         ("repository", repository),
         ("ref", ref),
@@ -50,6 +51,7 @@ def checkout(
         ("submodules", submodules),
         ("set-safe-directory", set_safe_directory),
         ("github-server-url", github_server_url),
+        ("allow-unsafe-pr-checkout", allow_unsafe_pr_checkout),
     )).name(
         "Checkout"
     ).outputs(
@@ -79,6 +81,8 @@ def setup_uv(
     version_file: str | None = None,
     python_version: str | None = None,
     activate_environment: str | None = None,
+    venv_path: str | None = None,
+    no_project: str | None = None,
     working_directory: str | None = None,
     checksum: str | None = None,
     github_token: str | None = None,
@@ -95,16 +99,20 @@ def setup_uv(
     tool_dir: str | None = None,
     tool_bin_dir: str | None = None,
     manifest_file: str | None = None,
+    download_from_astral_mirror: str | None = None,
     add_problem_matchers: str | None = None,
+    quiet: str | None = None,
     resolution_strategy: str | None = None,
 ):
     return uses(
-        "astral-sh/setup-uv@ed21f2f24f8dd64503750218de024bcf64c7250a"
+        "astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d"
     ).with_((
         ("version", version),
         ("version-file", version_file),
         ("python-version", python_version),
         ("activate-environment", activate_environment),
+        ("venv-path", venv_path),
+        ("no-project", no_project),
         ("working-directory", working_directory),
         ("checksum", checksum),
         ("github-token", github_token),
@@ -121,16 +129,21 @@ def setup_uv(
         ("tool-dir", tool_dir),
         ("tool-bin-dir", tool_bin_dir),
         ("manifest-file", manifest_file),
+        ("download-from-astral-mirror", download_from_astral_mirror),
         ("add-problem-matchers", add_problem_matchers),
+        ("quiet", quiet),
         ("resolution-strategy", resolution_strategy),
     )).name(
         "Setup uv"
     ).comment(
-        uses="v7.1.5"
+        uses="v10.0.1"
     ).outputs(
         "uv-version",
         "uv-path",
         "uvx-path",
         "cache-hit",
+        "cache-key",
         "venv",
+        "python-version",
+        "python-cache-hit",
     )
