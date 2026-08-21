@@ -4,7 +4,7 @@
 `gh` CLI extension and use it in **any** repository: write a small Python file describing a
 workflow, run `gh gen`, and it generates the corresponding `.yml`. Because the workflow is
 expressed as normal Python, you get editor completion, reuse, type checks on workflow fields,
-`${{ ... }}` expressions built from real Python operators and f-strings, and optional typed
+`${{ ... }}` expressions built from real Python operators and t-strings, and optional typed
 wrappers for the actions you `uses:`.
 
 <!-- readme-test: expect-yaml -->
@@ -255,7 +255,7 @@ def release():
     on.workflow_dispatch().workflow_call()
     version = on.input("the version to release").required()
     verbose = on.input.default(False)
-    run(f"echo releasing {version} (verbose={verbose})")
+    run(t"echo releasing {version} (verbose={verbose})")
 ```
 
 ```yaml
@@ -394,7 +394,7 @@ context.
 @job
 def test():
     strategy.matrix(x=[1, 2, 3], y=["a", "b", "c"]).fail_fast().max_parallel(5)
-    run(f"{matrix.x}, {matrix.y}")
+    run(t"{matrix.x}, {matrix.y}")
 ```
 
 ```yaml
@@ -506,12 +506,13 @@ Notes:
 ## Expressions and contexts
 
 Any `${{ ... }}` expression is built from context objects and normal Python operators, then
-interpolated with f-strings or passed directly to builders. Exported contexts include
-`github`, `env`, `secrets`, `vars`, `matrix`, `runner`, and `steps`; `needs.<job>` comes from
-job handles and `inputs.<name>` from input builders.
+interpolated with [t-strings](https://peps.python.org/pep-0750/) (`t"...{ctx}..."`) or passed
+directly to builders. Exported contexts include `github`, `env`, `secrets`, `vars`, `matrix`,
+`runner`, and `steps`; `needs.<job>` comes from job handles and `inputs.<name>` from input
+builders.
 
 ```python
-run(f"echo {github.actor} on {runner.os}")
+run(t"echo {github.actor} on {runner.os}")
 run("deploy").if_((github.ref == "refs/heads/main") & ~contains(github.event_name, "pull"))
 ```
 
@@ -535,17 +536,20 @@ run("").if_(always())
 
 > Actions expressions are not booleans, so never use Python `and`/`or`/`not` or put a
 > context in an `if` statement — use `&`, `|`, `~`. Doing otherwise raises an error.
+>
+> Plain f-strings still interpolate contexts but are deprecated in favor of t-strings, and
+> emit a `DeprecationWarning`.
 
 ## Workflow-level settings
 
 ### `run_name`
 
-Set the dynamic run name shown in the Actions UI. It is an expression, so f-strings work:
+Set the dynamic run name shown in the Actions UI. It is an expression, so t-strings work:
 
 ```python
 @workflow
 def deploy():
-    run_name(f"Deploy by {github.actor}")
+    run_name(t"Deploy by {github.actor}")
     on.workflow_dispatch()
     run("")
 ```
@@ -596,7 +600,7 @@ jobs:
 ```python
 env(FOO="bar")                                   # workflow or job env
 
-concurrency.group(f"{github.ref | github.run_id}")
+concurrency.group(t"{github.ref | github.run_id}")
 concurrency.cancel_in_progress()                 # concurrency: {group, cancel-in-progress}
 
 defaults.run(shell="zsh")                        # defaults.run.shell / working-directory
