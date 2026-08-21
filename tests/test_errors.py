@@ -544,3 +544,15 @@ def test_too_many_inputs_on_workflow_dispatch(error):
     on.workflow_dispatch.input(id="too_much")
 
     run("")
+
+
+@expect_errors
+def test_non_representable_env_value(error):
+    on.workflow_dispatch()
+
+    error(
+        "expected `env` to be of type `dict[str, str | bool | int | float | ghgen.expr.Expr] | None`, got `{'BAD': {1}}` of type `dict`"
+    )
+    env(BAD={1})
+
+    run("")
