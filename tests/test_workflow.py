@@ -1391,6 +1391,7 @@ def test_github_context():
       j3:
         permissions:
           discussions: write
+          models: read
           packages: read
         runs-on: ubuntu-latest
         steps:
@@ -1413,7 +1414,7 @@ def test_permissions():
 
     @job
     def j3():
-        permissions(packages="read", discussions="write")
+        permissions(packages="read", discussions="write", models="read")
         run("")
 
 
