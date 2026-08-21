@@ -538,7 +538,8 @@ run("").if_(always())
 > context in an `if` statement — use `&`, `|`, `~`. Doing otherwise raises an error.
 >
 > Plain f-strings still interpolate contexts but are deprecated in favor of t-strings, and
-> emit a `DeprecationWarning`.
+> emit a `DeprecationWarning`. On Python < 3.14, where t-strings (PEP 750) aren't available,
+> you can use f-strings for now.
 
 ## Workflow-level settings
 
