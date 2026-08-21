@@ -1,11 +1,13 @@
 # `gh-gen`, a GitHub Actions generator
 
-`gh-gen` is a Python DSL for authoring GitHub Actions workflows. You write a small Python
-file describing a workflow, run `gh-gen`, and it generates the corresponding `.yml`. Because
-the workflow is expressed as normal Python, you get editor completion, reuse, type checks on
-workflow fields, `${{ ... }}` expressions built from real Python operators and f-strings, and
-optional typed wrappers for the actions you `uses:`.
+`gh-gen` is a Python DSL for authoring GitHub Actions workflows. You install it once as a
+`gh` CLI extension and use it in **any** repository: write a small Python file describing a
+workflow, run `gh gen`, and it generates the corresponding `.yml`. Because the workflow is
+expressed as normal Python, you get editor completion, reuse, type checks on workflow fields,
+`${{ ... }}` expressions built from real Python operators and f-strings, and optional typed
+wrappers for the actions you `uses:`.
 
+<!-- readme-test: expect-yaml -->
 ```python
 # .github/workflows/check.py
 from ghgen.syntax import *
@@ -45,6 +47,7 @@ jobs:
 - [Installation](#installation)
 - [Quick start](#quick-start)
 - [How generation works](#how-generation-works)
+- [Managing action dependencies (`gh gen add`)](#managing-action-dependencies-gh-gen-add)
 - [Triggers (`on`)](#triggers-on)
 - [Jobs](#jobs)
   - [`runs_on`](#runs_on)
@@ -59,27 +62,34 @@ jobs:
   - [`run_name`](#run_name)
   - [`permissions`](#permissions)
   - [`env`, `concurrency`, `defaults`](#env-concurrency-defaults)
-- [Typed actions (`gh-gen.yml`)](#typed-actions-gh-genyml)
 - [Builder reference](#builder-reference)
 
 ## Installation
 
-`gh-gen` runs with [`uv`](https://github.com/astral-sh/uv) and requires Python ≥ 3.12. The
-repository ships a small [`gh-gen`](./gh-gen) wrapper script that invokes the tool through
-`uv`:
+`gh-gen` requires [`uv`](https://github.com/astral-sh/uv) and Python ≥ 3.12. Install it once
+as a [`gh` CLI](https://cli.github.com) extension and the `gh gen` command becomes available
+in every repository you work in:
 
 ```bash
-./gh-gen            # generate every workflow under .github/workflows
-./gh-gen --check    # fail if any generated file is out of date (use in CI)
+gh extension install redsun82/gh-gen
 ```
 
-The wrapper is just `uv --project <repo> run gh-gen "$@"`, so you can also run
-`uv run gh-gen` directly.
+Then, from the root of any repository:
+
+```bash
+gh gen            # generate every workflow under .github/workflows
+gh gen --check    # fail if any generated file is out of date (use in CI)
+```
+
+You don't need `uv` or a Python project in the target repository — the extension carries its
+own. When hacking on `gh-gen` itself you can instead run the bundled [`gh-gen`](./gh-gen)
+wrapper script (just `uv --project <repo> run gh-gen "$@"`); `gh gen …`, `./gh-gen …`, and
+`uv run gh-gen …` are interchangeable and this guide uses `gh gen`.
 
 ## Quick start
 
-1. Create `.github/workflows/<id>.py`. The file name is up to you; the generated YAML is
-   named after each `@workflow` function.
+1. In the repository you want to add workflows to, create `.github/workflows/<id>.py`. The
+   file name is up to you; the generated YAML is named after each `@workflow` function.
 2. Describe the workflow:
 
    ```python
@@ -94,7 +104,7 @@ The wrapper is just `uv --project <repo> run gh-gen "$@"`, so you can also run
        run("uv run pytest")
    ```
 
-3. Run `./gh-gen`. It writes `.github/workflows/check.yml` next to your source:
+3. Run `gh gen`. It writes `.github/workflows/check.yml` next to your source:
 
    ```yaml
    # generated from check.py::check
@@ -116,7 +126,7 @@ The wrapper is just `uv --project <repo> run gh-gen "$@"`, so you can also run
        - run: uv run pytest
    ```
 
-Commit both the `.py` source and the generated `.yml`; run `./gh-gen --check` in CI to keep
+Commit both the `.py` source and the generated `.yml`; run `gh gen --check` in CI to keep
 them in sync.
 
 ## How generation works
@@ -137,16 +147,68 @@ them in sync.
   level, or mixing `uses` with steps) are checked at generation time and reported with the
   source location.
 
-Useful CLI subcommands (all accept `-D/--output-directory`, `-I/--include`, `--check`,
-`--verbose`):
+Useful CLI options (accepted by every command): `-D/--output-directory`, `-I/--include`,
+`--check`, `--verbose`. `gh gen` (aliases `g`, `gen`) generates workflows; action
+dependencies are managed with `gh gen add`/`update`/`remove`/`sync` — see
+[Managing action dependencies](#managing-action-dependencies-gh-gen-add).
+
+## Managing action dependencies (`gh gen add`)
+
+Rather than hand-writing `uses:` strings and pinning versions by hand, `gh-gen` manages the
+actions you depend on like a package manager. Dependencies are declared in `gh-gen.yml`,
+pinned to a commit in `gh-gen.lock`, and each one is exposed as a fully-typed Python helper
+(one keyword argument per action input).
+
+Add a dependency — this updates `gh-gen.yml` and `gh-gen.lock` for you:
+
+```bash
+gh gen add actions/checkout@v6
+gh gen add astral-sh/setup-uv --name "Setup uv"
+```
+
+which records it in `gh-gen.yml`:
+
+```yaml
+# gh-gen.yml
+uses:
+  checkout: actions/checkout
+  setup_uv:
+    uses: astral-sh/setup-uv
+    name: Setup uv
+  pre_commit:
+    uses: pre-commit/action
+    name: Check
+```
+
+Each entry becomes an importable helper, so a workflow calls the action by name instead of
+repeating a `uses:` string:
+
+<!-- readme-test: skip (needs a generated `actions` module) -->
+```python
+from ghgen.syntax import *
+from actions import *
+
+
+@workflow
+def check():
+    on.pull_request().push(branches=["main"]).workflow_dispatch()
+    checkout()
+    setup_uv()
+    pre_commit().id("Check")
+```
+
+The rest of the dependency lifecycle is command-driven too:
 
 | Command | Purpose |
 | --- | --- |
-| `gh-gen` (alias `g`, `gen`) | Generate workflows |
-| `gh-gen add <action>` | Add a typed action dependency (see [Typed actions](#typed-actions-gh-genyml)) |
-| `gh-gen update` | Refresh pinned action versions |
-| `gh-gen remove <id>` | Remove an action dependency |
-| `gh-gen sync` | Regenerate the lock file from `gh-gen.yml` |
+| `gh gen add <owner>/<repo>[@ref]` | Add an action dependency and lock it |
+| `gh gen update` | Refresh pinned action versions |
+| `gh gen remove <id>` | Remove an action dependency |
+| `gh gen sync` | Regenerate `gh-gen.lock` from `gh-gen.yml` |
+
+Actions are pinned to a commit by default; those whose owner is listed in `trusted-owners`
+(just `actions` out of the box) are referenced by tag instead. Use `--no-pin`/`--pin` on
+`add` to override per action.
 
 ## Triggers (`on`)
 
@@ -543,44 +605,6 @@ defaults.run.working_directory("foo")
 
 `concurrency` and `defaults` are also callable inside `@job` for job-scoped settings, and
 `env(...)` accepts either keyword arguments or a mapping.
-
-## Typed actions (`gh-gen.yml`)
-
-Rather than writing raw `uses:` strings, you can register the actions you depend on in
-`gh-gen.yml` and let `gh-gen` generate typed Python wrappers (with one keyword argument per
-action input) plus a lock file that pins commits.
-
-```yaml
-# gh-gen.yml
-uses:
-  checkout: actions/checkout
-  setup_uv:
-    uses: astral-sh/setup-uv
-    name: Setup uv
-  pre_commit:
-    uses: pre-commit/action
-    name: Check
-```
-
-Run `./gh-gen add <owner>/<repo>[@ref]` to add an entry (or edit the file and run
-`./gh-gen sync`). This produces an importable module of helpers, so a workflow can write:
-
-```python
-from ghgen.syntax import *
-from actions import *
-
-
-@workflow
-def check():
-    on.pull_request().push(branches=["main"]).workflow_dispatch()
-    checkout()
-    setup_uv()
-    pre_commit().id("Check")
-```
-
-Versions are pinned in `gh-gen.lock`; `./gh-gen update` refreshes them, and `./gh-gen remove`
-drops a dependency. Actions from owners in `trusted-owners` (just `actions` by default) are
-referenced by tag instead of a pinned commit.
 
 ## Builder reference
 
