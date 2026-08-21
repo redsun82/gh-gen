@@ -1,7 +1,9 @@
 # generated from check.py::check
 on:
   pull_request: {}
-  push: {}
+  push:
+    branches:
+    - main
   workflow_dispatch: {}
 defaults:
   run:
