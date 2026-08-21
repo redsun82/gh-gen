@@ -293,6 +293,10 @@ jobs:
 Choice inputs use `.options(...)`, and `on.workflow_call.secret(...)` declares secrets. See
 `tests/test_workflow.py::test_workflow_call` for the full surface.
 
+An input, secret, or output with no explicit `.id(...)` takes its id from the variable it is
+assigned to (`version`, `verbose` above). The name is captured where you assign it, so it
+holds even when the builder is passed into a helper and only used there.
+
 ## Jobs
 
 Declare a job with the `@job` decorator. The function name is the job id, and the decorator
@@ -502,6 +506,8 @@ Notes:
   become dashes (`arg__2` → `arg_2`, `arg_1` → `arg-1`), matching action input conventions.
 - `uses` on an action auto-derives a step `name` from the action, and multi-line `run`
   blocks are dedented automatically.
+- When a step is assigned to a variable and given no explicit `id`, it takes its id from that
+  variable name, captured at the assignment so it survives being passed into a helper.
 
 ## Expressions and contexts
 

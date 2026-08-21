@@ -13,6 +13,7 @@ dependencies = [
     "pystache>=0.6.8",
     "pytest>=8.3.4",
     "ruamel-yaml>=0.18.10",
+    "executing>=2.0.0",
 ]
 
 [project.scripts]

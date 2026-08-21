@@ -8,10 +8,12 @@ import re
 import textwrap
 import types
 import typing
+import ast
 from dataclasses import dataclass, fields
 import pathlib
 
 import inflection
+import executing
 
 from .expr import (
     DotExpr,
@@ -61,6 +63,69 @@ def _get_user_frame() -> typing.Any:
 
 def _get_user_frame_info() -> inspect.Traceback:
     return inspect.getframeinfo(_get_user_frame())
+
+
+# A single `name = <builder chain>` assignment target, resolved from the AST of
+# the user's frame. Parent maps are cached per source tree.
+_parent_maps: dict[str, dict[ast.AST, ast.AST]] = {}
+
+
+def _parent_map(source: "executing.Source") -> dict[ast.AST, ast.AST] | None:
+    tree = source.tree
+    if tree is None:
+        return None
+    cached = _parent_maps.get(source.filename)
+    if cached is None:
+        cached = {
+            child: parent
+            for parent in ast.walk(tree)
+            for child in ast.iter_child_nodes(parent)
+        }
+        _parent_maps[source.filename] = cached
+    return cached
+
+
+def _assigned_name() -> str | None:
+    """Name of the variable the element being built is assigned to.
+
+    Resolved eagerly at the assignment site from the user's frame, so it stays
+    stable even when the element is later passed into a function and only used
+    there. Returns `None` when there is no plain `name = ...` assignment to infer
+    a name from (e.g. inline use, or a tuple/attribute target).
+    """
+    try:
+        frame = _get_user_frame()
+        source = executing.Source.for_frame(frame)
+        node = source.executing(frame).node
+        parents = _parent_map(source)
+        if node is None or parents is None:
+            return None
+        stmt = node
+        parent = parents.get(stmt)
+        while parent is not None and not isinstance(parent, ast.stmt):
+            # A value built inside a comprehension or lambda is not bound to the
+            # enclosing assignment target, so don't borrow its name.
+            if isinstance(
+                parent,
+                (
+                    ast.Lambda,
+                    ast.GeneratorExp,
+                    ast.ListComp,
+                    ast.SetComp,
+                    ast.DictComp,
+                ),
+            ):
+                return None
+            stmt, parent = parent, parents.get(parent)
+        match parent:
+            case ast.Assign(targets=[ast.Name(id=name)]):
+                return name
+            case ast.AnnAssign(target=ast.Name(id=name)):
+                return name
+            case _:
+                return None
+    except Exception:
+        return None
 
 
 def _representable(val: typing.Any) -> bool:
@@ -454,6 +519,9 @@ class _IdElementUpdater[T](_Updater[T]):
     def _ensure(self) -> typing.Self:
         if self._instantiated:
             return self
+        # Resolve the assignment target name here, at construction time, so it is
+        # bound to where the element is defined rather than where it is later used.
+        suggested_id = _assigned_name()
         parent_list, parent_type = self._get_parent_with_type()
         assert isinstance(parent_list, list)
         ret = type(self)(
@@ -462,7 +530,9 @@ class _IdElementUpdater[T](_Updater[T]):
             _cached_parent=parent_list,
             _cached_parent_type=parent_type,
         )
-        _ = ret._element
+        # Transient, non-serialized hint read back by `ensure_id`/`_ensure_id`
+        # (elements are non-slotted dataclasses, so a plain attribute is fine).
+        ret._element._suggested_id = suggested_id
         return ret
 
     def id(self, id: str | None) -> typing.Self:
@@ -486,7 +556,7 @@ class _IdElementUpdater[T](_Updater[T]):
         ret = self._ensure()
         el = ret._element
         if el.id is None:
-            id = _get_var_name(lambda v: v is ret)
+            id = getattr(el, "_suggested_id", None)
             parent = ret._parent
             el.id = _allocate_id(
                 # remove `s` from name of parent list to get default name
@@ -1203,16 +1273,9 @@ def _allocate_id(
     )
 
 
-def _get_var_name(pred: typing.Callable[[object], bool]) -> str | None:
-    frame = _get_user_frame()
-    return next((var for var, value in frame.f_locals.items() if pred(value)), None)
-
-
 def _ensure_id(s: Step) -> str:
     if s.id is None:
-        id = _get_var_name(
-            lambda v: isinstance(v, _StepUpdater) and v._cached_element is s
-        )
+        id = getattr(s, "_suggested_id", None)
         s.id = _allocate_id(
             id or "step",
             lambda id: all(s.id != id for s in _ctx.current_job.steps),
