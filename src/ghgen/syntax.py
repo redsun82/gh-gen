@@ -1387,6 +1387,7 @@ def permissions(
     id_token: typing.Literal["write", "none"] | None = None,
     issues: Permission | None = None,
     discussions: Permission | None = None,
+    models: Permission | None = None,
     packages: Permission | None = None,
     pages: Permission | None = None,
     pull_requests: Permission | None = None,
