@@ -556,3 +556,16 @@ def test_non_representable_env_value(error):
     env(BAD={1})
 
     run("")
+
+
+@expect_errors
+def test_non_representable_matrix_value(error):
+    on.workflow_dispatch()
+
+    @job
+    def j():
+        error(
+            "expected `values` to be of type `dict[str, list[str | bool | int | float | ghgen.expr.Expr]] | None`, got `{'node': [{1}]}` of type `dict`"
+        )
+        strategy.matrix(node=[{1}])
+        run("")
