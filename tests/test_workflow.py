@@ -184,6 +184,101 @@ def test_job_runs_on():
 
 @expect(
     """\
+    # generated from test_workflow.py::test_runs_on_group
+    on:
+      workflow_dispatch: {}
+    defaults:
+      run:
+        shell: bash
+    jobs:
+      my_job:
+        runs-on:
+          group: my-group
+    """
+)
+def test_runs_on_group():
+    on.workflow_dispatch()
+
+    @job
+    def my_job():
+        runs_on(group="my-group")
+
+
+@expect(
+    """\
+    # generated from test_workflow.py::test_runs_on_labels
+    on:
+      workflow_dispatch: {}
+    defaults:
+      run:
+        shell: bash
+    jobs:
+      my_job:
+        runs-on:
+          labels:
+          - self-hosted
+          - linux
+          - x64
+    """
+)
+def test_runs_on_labels():
+    on.workflow_dispatch()
+
+    @job
+    def my_job():
+        runs_on(labels=["self-hosted", "linux", "x64"])
+
+
+@expect(
+    """\
+    # generated from test_workflow.py::test_runs_on_group_and_labels
+    on:
+      workflow_dispatch: {}
+    defaults:
+      run:
+        shell: bash
+    jobs:
+      my_job:
+        runs-on:
+          group: my-group
+          labels:
+          - linux
+    """
+)
+def test_runs_on_group_and_labels():
+    on.workflow_dispatch()
+
+    @job
+    def my_job():
+        runs_on(group="my-group", labels=["linux"])
+
+
+@expect(
+    """\
+    # generated from test_workflow.py::test_runs_on_labels_positional
+    on:
+      workflow_dispatch: {}
+    defaults:
+      run:
+        shell: bash
+    jobs:
+      my_job:
+        runs-on:
+        - self-hosted
+        - linux
+        - x64
+    """
+)
+def test_runs_on_labels_positional():
+    on.workflow_dispatch()
+
+    @job
+    def my_job():
+        runs_on(["self-hosted", "linux", "x64"])
+
+
+@expect(
+    """\
     # generated from test_workflow.py::test_multiline_run_code_dedented
     on:
       workflow_dispatch: {}

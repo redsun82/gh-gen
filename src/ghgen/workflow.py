@@ -484,12 +484,17 @@ class Environment(Element):
     url: Value
 
 
+class RunsOn(Element):
+    group: Value
+    labels: list[Value]
+
+
 class Job(Element):
     name: Value
     if_: Value
     permissions: Permissions | typing.Literal["read-all", "write-all"]
     needs: list[str]
-    runs_on: Value
+    runs_on: Value | list[Value] | RunsOn
     concurrency: Concurrency
     environment: Value | Environment
     container: Container
