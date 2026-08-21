@@ -14,10 +14,14 @@ A block can opt out with ``<!-- readme-test: skip -->`` on the line before its f
 (used for the typed-actions example, which needs a generated ``actions`` module), or
 request an exact-output check against the following ``yaml`` block with
 ``<!-- readme-test: expect-yaml -->``.
+
+Examples must also use t-strings for context interpolation; a block that falls back to
+the deprecated f-string path fails the guard.
 """
 
 import pathlib
 import textwrap
+import warnings
 
 import pytest
 
@@ -118,15 +122,25 @@ def test_readme_has_runnable_examples():
 )
 def test_readme_example(code, expected_yaml, tmp_path):
     g = _seed_globals()
-    exec(compile(code, str(README), "exec"), g)
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        exec(compile(code, str(README), "exec"), g)
 
-    workflows = [v for v in g.values() if isinstance(v, WorkflowInfo)]
-    assert workflows, "example did not define a @workflow"
+        workflows = [v for v in g.values() if isinstance(v, WorkflowInfo)]
+        assert workflows, "example did not define a @workflow"
 
-    for wf in workflows:
-        output = generate_workflow(wf, tmp_path)
-        actual = output.read_text().splitlines()
-        if expected_yaml is not None:
-            assert _strip_generated_comment(actual) == _strip_generated_comment(
-                expected_yaml.splitlines()
-            )
+        for wf in workflows:
+            output = generate_workflow(wf, tmp_path)
+            actual = output.read_text().splitlines()
+            if expected_yaml is not None:
+                assert _strip_generated_comment(actual) == _strip_generated_comment(
+                    expected_yaml.splitlines()
+                )
+
+    # Examples must use t-strings, not the deprecated f-string interpolation.
+    deprecated = [
+        w
+        for w in caught
+        if issubclass(w.category, DeprecationWarning) and "t-string" in str(w.message)
+    ]
+    assert not deprecated, f"README example uses deprecated f-strings: {deprecated}"
