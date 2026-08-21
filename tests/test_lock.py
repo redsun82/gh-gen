@@ -32,15 +32,12 @@ def test_local(repo, monkeypatch):
         """,
     )
     main(["add", "./my/actions/foo", "-v"])
-    config.expect_diff(
-        """\
+    config.expect_diff("""\
         @@ -0,0 +1,2 @@
         +uses:
         +  foo: ./my/actions/foo
-        """
-    )
-    lock.expect_diff(
-        """\
+        """)
+    lock.expect_diff("""\
         @@ -0,0 +1,14 @@
         +actions:
         +- id: foo
@@ -56,8 +53,7 @@ def test_local(repo, monkeypatch):
         +  - output1
         +  - output2
         +  path: my/actions/foo
-        """
-    )
+        """)
     assert pathlib.Path(".github", "workflows", "actions.py").exists()
 
     # add another one
@@ -68,16 +64,13 @@ def test_local(repo, monkeypatch):
         """,
     )
     main(["add", "my_bar=./my/actions/bar", "-v"])
-    config.expect_diff(
-        """\
+    config.expect_diff("""\
         @@ -1,2 +1,3 @@
          uses:
            foo: ./my/actions/foo
         +  my_bar: ./my/actions/bar
-        """
-    )
-    lock.expect_diff(
-        """\
+        """)
+    lock.expect_diff("""\
         @@ -12,3 +12,8 @@
            - output1
            - output2
@@ -87,8 +80,7 @@ def test_local(repo, monkeypatch):
         +  inputs: []
         +  outputs: []
         +  path: my/actions/bar
-        """
-    )
+        """)
 
     # reject same name
     monkeypatch.setattr("builtins.input", lambda _: "n")
@@ -99,17 +91,14 @@ def test_local(repo, monkeypatch):
     # accept same name overwrite
     monkeypatch.setattr("builtins.input", lambda _: "y")
     main(["add", "other=./my/actions/foo", "-v"])
-    config.expect_diff(
-        """\
+    config.expect_diff("""\
         @@ -1,3 +1,4 @@
          uses:
            foo: ./my/actions/foo
            my_bar: ./my/actions/bar
         +  other: ./my/actions/foo
-        """
-    )
-    lock.expect_diff(
-        """\
+        """)
+    lock.expect_diff("""\
         @@ -17,3 +17,16 @@
            inputs: []
            outputs: []
@@ -127,8 +116,7 @@ def test_local(repo, monkeypatch):
         +  - output1
         +  - output2
         +  path: my/actions/foo
-        """
-    )
+        """)
 
     # lock regenerated
     lock.path.unlink()
@@ -138,17 +126,14 @@ def test_local(repo, monkeypatch):
 
     # remove one
     main(["remove", "foo"])
-    config.expect_diff(
-        """\
+    config.expect_diff("""\
         @@ -1,4 +1,3 @@
          uses:
         -  foo: ./my/actions/foo
            my_bar: ./my/actions/bar
            other: ./my/actions/foo
-        """
-    )
-    lock.expect_diff(
-        """\
+        """)
+    lock.expect_diff("""\
         @@ -1,17 +1,4 @@
          actions:
         -- id: foo
@@ -167,22 +152,18 @@ def test_local(repo, monkeypatch):
          - id: my_bar
            name: My bar
            inputs: []
-        """
-    )
+        """)
 
-    foo.write(
-        """\
+    foo.write("""\
         name: Foo Changed
         inputs:
             another-input:
                 description: Input 1
                 required: true
-        """
-    )
+        """)
     main(["update", "-v"])
     config.expect_unchanged()
-    lock.expect_diff(
-        """\
+    lock.expect_diff("""\
         @@ -5,15 +5,10 @@
            outputs: []
            path: my/actions/bar
@@ -203,17 +184,14 @@ def test_local(repo, monkeypatch):
         -  - output2
         +  outputs: []
            path: my/actions/foo
-        """
-    )
+        """)
 
 
 def test_update_regenerates_workflows(repo, mock_gh_api_call):
-    config = repo.config(
-        """\
+    config = repo.config("""\
         uses:
             repo: owner/repo@v2
-        """
-    )
+        """)
     lock = repo.lock()
     repo.file(
         ".github/workflows/wf.py",
@@ -242,8 +220,7 @@ def test_update_regenerates_workflows(repo, mock_gh_api_call):
     # `update` fetches the action *and* regenerates the workflow in one shot
     assert main(["update", "-v"]) == 0
     config.expect_unchanged()
-    lock.expect_diff(
-        """\
+    lock.expect_diff("""\
         @@ -0,0 +1,16 @@
         +actions:
         +- pinned: true
@@ -261,10 +238,8 @@ def test_update_regenerates_workflows(repo, mock_gh_api_call):
         +  resolved-ref: v2
         +  sha: sha_v2
         +  trusted: false
-        """
-    )
-    workflow_yml.expect_diff(
-        """\
+        """)
+    workflow_yml.expect_diff("""\
         @@ -0,0 +1,11 @@
         +# generated from wf.py::wf
         +on:
@@ -277,8 +252,7 @@ def test_update_regenerates_workflows(repo, mock_gh_api_call):
         +    runs-on: ubuntu-latest
         +    steps:
         +    - run: echo hello
-        """
-    )
+        """)
 
 
 class MockedGhApi:
@@ -372,15 +346,12 @@ def test_remote(repo, mock_gh_api_call):
         """,
     )
     main(["add", "owner/repo@v2", "-v"])
-    config.expect_diff(
-        """\
+    config.expect_diff("""\
         @@ -0,0 +1,2 @@
         +uses:
         +  repo: owner/repo@v2
-        """
-    )
-    lock.expect_diff(
-        """\
+        """)
+    lock.expect_diff("""\
         @@ -0,0 +1,19 @@
         +actions:
         +- pinned: true
@@ -401,8 +372,7 @@ def test_remote(repo, mock_gh_api_call):
         +  resolved-ref: v2
         +  sha: this_is_a_sha
         +  trusted: false
-        """
-    )
+        """)
 
     # fetch latest version
     mock_gh_api_call(
@@ -419,16 +389,13 @@ def test_remote(repo, mock_gh_api_call):
         as_latest=True,
     )
     main(["add", "owner/foo", "-v"])
-    config.expect_diff(
-        """\
+    config.expect_diff("""\
         @@ -1,2 +1,3 @@
          uses:
            repo: owner/repo@v2
         +  foo: owner/foo
-        """
-    )
-    lock.expect_diff(
-        """\
+        """)
+    lock.expect_diff("""\
         @@ -1,4 +1,18 @@
          actions:
         +- pinned: true
@@ -448,8 +415,7 @@ def test_remote(repo, mock_gh_api_call):
          - pinned: true
            id: repo
            name: My Action
-        """
-    )
+        """)
 
     # test with path
     mock_gh_api_call(
@@ -462,17 +428,14 @@ def test_remote(repo, mock_gh_api_call):
         path="path/to/bar",
     )
     main(["add", "owner/repo/path/to/bar@v1.0.0", "-v"])
-    config.expect_diff(
-        """\
+    config.expect_diff("""\
         @@ -1,3 +1,4 @@
          uses:
            repo: owner/repo@v2
            foo: owner/foo
         +  repo_path_to_bar: owner/repo/path/to/bar@v1.0.0
-        """
-    )
-    lock.expect_diff(
-        """\
+        """)
+    lock.expect_diff("""\
         @@ -31,3 +31,15 @@
            resolved-ref: v2
            sha: this_is_a_sha
@@ -489,8 +452,7 @@ def test_remote(repo, mock_gh_api_call):
         +  resolved-ref: v1.0.0
         +  sha: bar_sha
         +  trusted: false
-        """
-    )
+        """)
 
     # add with branch
     mock_gh_api_call(
@@ -503,17 +465,14 @@ def test_remote(repo, mock_gh_api_call):
         as_branch=True,
     )
     main(["add", "x=owner/bar@main", "-v"])
-    config.expect_diff(
-        """\
+    config.expect_diff("""\
         @@ -2,3 +2,4 @@
            repo: owner/repo@v2
            foo: owner/foo
            repo_path_to_bar: owner/repo/path/to/bar@v1.0.0
         +  x: owner/bar@main
-        """
-    )
-    lock.expect_diff(
-        """\
+        """)
+    lock.expect_diff("""\
         @@ -43,3 +43,15 @@
            resolved-ref: v1.0.0
            sha: bar_sha
@@ -530,8 +489,7 @@ def test_remote(repo, mock_gh_api_call):
         +  resolved-ref: main
         +  sha: branch_sha
         +  trusted: false
-        """
-    )
+        """)
 
     # update one
     mock_gh_api_call(
@@ -549,8 +507,7 @@ def test_remote(repo, mock_gh_api_call):
     )
     main(["update", "foo", "-v"])
     config.expect_unchanged()
-    lock.expect_diff(
-        """\
+    lock.expect_diff("""\
         @@ -10,8 +10,8 @@
            owner: owner
            repo: foo
@@ -562,23 +519,19 @@ def test_remote(repo, mock_gh_api_call):
            trusted: false
          - pinned: true
            id: repo
-        """
-    )
+        """)
 
     # remove one
     main(["remove", "repo_path_to_bar", "-v"])
-    config.expect_diff(
-        """\
+    config.expect_diff("""\
         @@ -1,5 +1,4 @@
          uses:
            repo: owner/repo@v2
            foo: owner/foo
         -  repo_path_to_bar: owner/repo/path/to/bar@v1.0.0
            x: owner/bar@main
-        """
-    )
-    lock.expect_diff(
-        """\
+        """)
+    lock.expect_diff("""\
         @@ -32,18 +32,6 @@
            sha: this_is_a_sha
            trusted: false
@@ -598,8 +551,7 @@ def test_remote(repo, mock_gh_api_call):
            id: x
            name: Branch Action
            inputs: []
-        """
-    )
+        """)
 
     # update all
     mock_gh_api_call(
@@ -630,8 +582,7 @@ def test_remote(repo, mock_gh_api_call):
     )
     main(["update", "-v"])
     config.expect_unchanged()
-    lock.expect_diff(
-        """\
+    lock.expect_diff("""\
         @@ -2,38 +2,29 @@
          - pinned: true
            id: foo
@@ -685,8 +636,7 @@ def test_remote(repo, mock_gh_api_call):
         -  sha: branch_sha
         +  sha: updated_sha_bar
            trusted: false
-        """
-    )
+        """)
     mock_gh_api_call(
         "owner/baz",
         "v2",
@@ -696,8 +646,7 @@ def test_remote(repo, mock_gh_api_call):
         """,
     )
     main(["add", "owner/baz@v2", "--no-pin", "-v"])
-    config.expect_diff(
-        """\
+    config.expect_diff("""\
         @@ -2,3 +2,6 @@
            repo: owner/repo@v2
            foo: owner/foo
@@ -705,10 +654,8 @@ def test_remote(repo, mock_gh_api_call):
         +  baz:
         +    uses: owner/baz@v2
         +    pin: false
-        """
-    )
-    lock.expect_diff(
-        """\
+        """)
+    lock.expect_diff("""\
         @@ -1,4 +1,15 @@
          actions:
         +- pinned: false
@@ -725,18 +672,15 @@ def test_remote(repo, mock_gh_api_call):
          - pinned: true
            id: foo
            name: Foo Action
-        """
-    )
+        """)
 
 
 def test_sync(repo, mock_gh_api_call):
-    config = repo.config(
-        """\
+    config = repo.config("""\
         uses:
             foo: owner/foo@v2
             bar: ./my/bar
-        """
-    )
+        """)
     lock = repo.lock()
     repo.file(
         "my/bar/action.yml",
@@ -758,8 +702,7 @@ def test_sync(repo, mock_gh_api_call):
     )
     main(["sync", "-v"])
     config.expect_unchanged()
-    lock.expect_diff(
-        """\
+    lock.expect_diff("""\
         @@ -0,0 +1,21 @@
         +actions:
         +- id: bar
@@ -782,21 +725,17 @@ def test_sync(repo, mock_gh_api_call):
         +  resolved-ref: v2
         +  sha: foo_sha
         +  trusted: false
-        """
-    )
-    config.write(
-        """\
+        """)
+    config.write("""\
         uses:
             foo: owner/foo@v2
             bar:
              uses: ./my/bar
              name: Bar
-        """
-    )
+        """)
     main(["sync", "-v"])
     config.expect_unchanged()
-    lock.expect_diff(
-        """\
+    lock.expect_diff("""\
         @@ -1,6 +1,7 @@
          actions:
          - id: bar
@@ -806,18 +745,14 @@ def test_sync(repo, mock_gh_api_call):
            inputs: []
            outputs: []
            path: my/bar
-        """
-    )
-    config.write(
-        """\
+        """)
+    config.write("""\
         uses:
             foo: owner/foo@v2
-        """
-    )
+        """)
     main(["sync", "-v"])
     config.expect_unchanged()
-    lock.expect_diff(
-        """\
+    lock.expect_diff("""\
         @@ -1,10 +1,4 @@
          actions:
         -- id: bar
@@ -829,14 +764,11 @@ def test_sync(repo, mock_gh_api_call):
          - pinned: true
            id: foo
            name: Foo Action
-        """
-    )
-    config.write(
-        """\
+        """)
+    config.write("""\
         uses:
             foo: owner/foo@v3
-        """
-    )
+        """)
     mock_gh_api_call(
         "owner/foo",
         "v3",
@@ -851,8 +783,7 @@ def test_sync(repo, mock_gh_api_call):
     )
     main(["sync", "-v"])
     config.expect_unchanged()
-    lock.expect_diff(
-        """\
+    lock.expect_diff("""\
         @@ -6,11 +6,13 @@
            - name: input
              id: input
@@ -870,18 +801,15 @@ def test_sync(repo, mock_gh_api_call):
         +  resolved-ref: v3
         +  sha: foo_sha_v3
            trusted: false
-        """
-    )
+        """)
 
 
 def test_trusted_owners(repo, mock_gh_api_call):
-    config = repo.config(
-        """\
+    config = repo.config("""\
         uses:
             checkout: actions/checkout@v4
             foo: owner1/foo@v1
-        """
-    )
+        """)
     lock = repo.lock()
     mock_gh_api_call(
         "owner1/foo",
@@ -901,8 +829,7 @@ def test_trusted_owners(repo, mock_gh_api_call):
     )
     main(["sync", "-v"])
     config.expect_unchanged()
-    lock.expect_diff(
-        """\
+    lock.expect_diff("""\
         @@ -0,0 +1,24 @@
         +actions:
         +- pinned: false
@@ -928,17 +855,14 @@ def test_trusted_owners(repo, mock_gh_api_call):
         +  resolved-ref: v1
         +  sha: foo_sha_v1
         +  trusted: false
-        """
-    )
-    config = repo.config(
-        """\
+        """)
+    config = repo.config("""\
         trusted-owners:
             - owner1
         uses:
             checkout: actions/checkout@v4
             foo: owner1/foo@v1
-        """
-    )
+        """)
     mock_gh_api_call(
         "owner1/foo",
         "v1",
@@ -957,8 +881,7 @@ def test_trusted_owners(repo, mock_gh_api_call):
     )
     main(["sync", "-v"])
     config.expect_unchanged()
-    lock.expect_diff(
-        """\
+    lock.expect_diff("""\
         @@ -1,5 +1,5 @@
          actions:
         -- pinned: false
@@ -985,5 +908,4 @@ def test_trusted_owners(repo, mock_gh_api_call):
         -  sha: foo_sha_v1
         -  trusted: false
         +  trusted: true
-        """
-    )
+        """)

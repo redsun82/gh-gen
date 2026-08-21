@@ -19,7 +19,14 @@ from .expr import (
     on_error,
     ErrorExpr,
     function,
+    dedent_template,
+    rewrite_ref_root,
 )
+
+try:
+    from string.templatelib import Template
+except ImportError:  # Python < 3.14
+    Template = None
 from . import workflow
 from .contexts import *
 
@@ -64,6 +71,8 @@ def _representable(val: typing.Any) -> bool:
     match val:
         case str() | bool() | int() | float() | Expr() | Element() | None:
             return True
+        case _ if Template is not None and isinstance(val, Template):
+            return True
         case list():
             return all(_representable(v) for v in val)
         case dict():
@@ -78,7 +87,11 @@ def _typecheck(val: typing.Any, ty: typing.Type) -> bool:
         case None if ty is str:
             return isinstance(val, ty) and "${{" not in val
         case None if ty is Expr:
-            return isinstance(val, ty) or (isinstance(val, str) and "${{" in val)
+            return (
+                isinstance(val, ty)
+                or (isinstance(val, str) and "${{" in val)
+                or (Template is not None and isinstance(val, Template))
+            )
         case None:
             return isinstance(val, ty)
         case typing.Union | types.UnionType:
@@ -494,6 +507,8 @@ def _seq(
         match arg:
             case str() | bool() | int() | float() | Expr() | dict():
                 ret.append(arg)
+            case _ if Template is not None and isinstance(arg, Template):
+                ret.append(arg)
             case collections.abc.Iterable():
                 ret.extend(arg)
             case _:
@@ -537,6 +552,8 @@ def _value[T](field: str, value: T) -> T:
 def _text[T](field: str, value: T) -> T:
     if isinstance(value, str):
         value = textwrap.dedent(value.strip("\n"))
+    elif Template is not None and isinstance(value, Template):
+        value = dedent_template(value)
     return value
 
 
@@ -725,15 +742,14 @@ class _OnUpdater(_Updater):
                 return self._update("description", _text, value)
 
             def value(self, value: Value | None):
-                print("PRE", value, _ctx.current_workflow)
                 ret = self._ensure()
                 if value is not None:
                     ret.ensure_id()
-                match value:
-                    case Expr() | str():
-                        value = str(value).replace("\0needs", "\0jobs")
+                # workflow-call outputs reference producing jobs via `jobs.<id>`,
+                # but inside a job those refs are written as `needs.<id>`; rewrite them.
+                if value is not None:
+                    value = rewrite_ref_root(value, "needs", "jobs")
                 ret._update("value", _value, value)
-                print("POST", value, _ctx.current_workflow)
                 return ret
 
         @property

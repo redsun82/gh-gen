@@ -6,6 +6,11 @@ from ruamel.yaml import CommentedMap
 
 from .expr import Expr, instantiate
 
+try:
+    from string.templatelib import Template
+except ImportError:  # Python < 3.14
+    Template = None
+
 
 @dataclasses.dataclass
 class Element:
@@ -59,6 +64,8 @@ class Element:
 
 
 def asobj(o: typing.Any):
+    if Template is not None and isinstance(o, Template):
+        return instantiate(o)
     match o:
         case Element() as e:
             return e.asdict()

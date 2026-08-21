@@ -1,7 +1,19 @@
+import warnings
+
 import pytest
 
 from src.ghgen.expr import *
+import src.ghgen.expr as _expr
 import unittest.mock
+
+
+@pytest.fixture
+def reset_fstring_warning():
+    # The one-time f-string deprecation flag is a process-global; reset it so
+    # each warning assertion starts from a clean slate.
+    _expr._fstring_deprecation_emitted = False
+    yield
+    _expr._fstring_deprecation_emitted = False
 
 
 @pytest.fixture(autouse=True)
@@ -54,6 +66,66 @@ def test_reftree_on_strings():
     assert reftree([f"<{a}>", f"<{a}, {b}>", {"A": "a", "c": c}]) == dict.fromkeys(
         "abc", {}
     )
+
+
+# --- t-string (PEP 750) support and f-string deprecation -----------------------
+#
+# t-strings are the idiomatic way to interpolate contexts; the tests above use
+# f-strings on purpose to keep the legacy path covered. The tests below assert
+# t-string parity and the one-time deprecation warning emitted for f-strings.
+
+
+def test_reftree_on_tstrings():
+    a = RefExpr("a")
+    b = RefExpr("b")
+    c = RefExpr("c")
+
+    assert reftree(t"-- {a} __ {b} || {c} >>") == dict.fromkeys("abc", {})
+    assert reftree(
+        {
+            "FOO": t"/{a}",
+            t"<{b}>": t"/{a}",
+            "BAZ": [c],
+        }
+    ) == dict.fromkeys("abc", {})
+    assert reftree([t"<{a}>", t"<{a}, {b}>", {"A": "a", "c": c}]) == dict.fromkeys(
+        "abc", {}
+    )
+
+
+def test_fstring_tstring_instantiate_parity():
+    a = RefExpr("a")
+    b = RefExpr("b")
+
+    assert instantiate(t"{a}, {b}") == instantiate(f"{a}, {b}") == "${{ a }}, ${{ b }}"
+    assert instantiate(t"-- {a & b} --") == instantiate(f"-- {a & b} --")
+
+
+def test_fstring_emits_deprecation_once(reset_fstring_warning):
+    a = RefExpr("a")
+    b = RefExpr("b")
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        reftree(f"{a}")
+        reftree(f"{b}")
+        instantiate(f"{a}")
+
+    fstring_warnings = [w for w in caught if issubclass(w.category, DeprecationWarning)]
+    assert len(fstring_warnings) == 1
+    assert "t-strings" in str(fstring_warnings[0].message)
+
+
+def test_tstring_emits_no_deprecation(reset_fstring_warning):
+    a = RefExpr("a")
+    b = RefExpr("b")
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        reftree(t"{a}")
+        instantiate(t"{a}, {b}")
+
+    assert [w for w in caught if issubclass(w.category, DeprecationWarning)] == []
 
 
 def test_no_bool():
