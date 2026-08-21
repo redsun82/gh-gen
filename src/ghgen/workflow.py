@@ -496,6 +496,7 @@ class Job(Element):
     services: list[Service]
     outputs: dict[str, Value]
     strategy: Strategy
+    continue_on_error: Value
     env: dict[str, Value]
     defaults: JobDefaults
     steps: list[Step]
