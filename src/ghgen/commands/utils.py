@@ -1,6 +1,8 @@
 import contextlib
+import difflib
+import io
+import os
 import pathlib
-import tempfile
 import typing
 import dataclasses
 import functools
@@ -58,7 +60,7 @@ def load[T](ty: type[T], file: pathlib.Path) -> T:
     return ty.fromdict(data)
 
 
-def dump[T](data: T, file: pathlib.Path):
+def dumps[T](data: T) -> str:
     match data:
         case Element():
             data = data.asdict()
@@ -66,6 +68,49 @@ def dump[T](data: T, file: pathlib.Path):
             pass
         case _:
             assert False, f"Cannot dump {type(data)} to YAML"
-    with tempfile.NamedTemporaryFile("w", delete=False) as tmp:
-        yaml.dump(data, tmp)
-    pathlib.Path(tmp.name).rename(file)
+    out = io.StringIO()
+    yaml.dump(data, out)
+    return out.getvalue()
+
+
+def write(file: pathlib.Path, contents: str):
+    """Atomically replace `file` with `contents`.
+
+    The temporary file lives next to `file`, as renaming across filesystems fails.
+    """
+    tmp = file.with_name(f"{file.name}.tmp")
+    tmp.write_text(contents)
+    try:
+        os.replace(tmp, file)
+    except BaseException:
+        tmp.unlink(missing_ok=True)
+        raise
+
+
+def diff(file: pathlib.Path, contents: str) -> list[str]:
+    """Unified diff from the current `file` to `contents` (empty if they match)."""
+    try:
+        current = file.read_text()
+    except FileNotFoundError:
+        current = ""
+    return [
+        l.rstrip("\n")
+        for l in difflib.unified_diff(
+            current.splitlines(keepends=True),
+            contents.splitlines(keepends=True),
+            str(file),
+            f"{file} (expected)",
+        )
+    ]
+
+
+def write_or_diff(file: pathlib.Path, contents: str, check: bool) -> list[str]:
+    """In check mode, return the diff `write` would cause without writing; otherwise write."""
+    if check:
+        return diff(file, contents)
+    write(file, contents)
+    return []
+
+
+def dump[T](data: T, file: pathlib.Path):
+    write(file, dumps(data))

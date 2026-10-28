@@ -3,12 +3,12 @@ import importlib.util
 import logging
 import sys
 import pathlib
-import difflib
+import io
 
 from ruamel.yaml import CommentedMap
 
 from ..syntax import WorkflowInfo, GenerationError
-from .utils import DiffError, yaml
+from .utils import DiffError, yaml, write_or_diff
 from .lock.sync import run as sync
 
 aliases = ["g", "gen"]
@@ -30,26 +30,14 @@ def generate_workflow(
 ) -> pathlib.Path | None:
     input = f"{w.file.name}::{w.spec.__name__}"
     output = (dir / w.id).with_suffix(".yml")
-    tmp = output.with_suffix(".yml.tmp")
     w = w.worfklow.asdict()
     w = CommentedMap(w)
     w.yaml_set_start_comment(f"generated from {input}")
-    with open(tmp, "w") as out:
-        yaml.dump(w, out)
-    if check:
-        if output.exists():
-            with open(output) as current:
-                current = [*current]
-        else:
-            current = []
-        with open(tmp) as new:
-            new = [*new]
-        diff = list(difflib.unified_diff(current, new, str(output), str(tmp)))
-        if diff:
-            raise DiffError([l.rstrip("\n") for l in diff])
-        tmp.unlink()
-    else:
-        tmp.rename(output)
+    out = io.StringIO()
+    yaml.dump(w, out)
+    diff = write_or_diff(output, out.getvalue(), check)
+    if diff:
+        raise DiffError(diff)
     return output
 
 
@@ -88,5 +76,11 @@ def generate_all(opts: argparse.Namespace) -> int:
 
 
 def run(opts: argparse.Namespace):
-    sync(opts)
-    return generate_all(opts)
+    try:
+        sync(opts)
+        synced = True
+    except DiffError as e:
+        for error in e.errors:
+            logging.error(error)
+        synced = False
+    return generate_all(opts) or (0 if synced else 1)

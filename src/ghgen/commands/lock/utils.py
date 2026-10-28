@@ -11,7 +11,7 @@ import pathlib
 import keyword
 
 from ...element import ConfigElement
-from ..utils import yaml, project_dir, load, dump
+from ..utils import yaml, project_dir, load, dumps, write_or_diff, DiffError
 from ..config import UsesClause
 
 
@@ -351,9 +351,14 @@ def sync_lock_data(
         for m in message:
             logging.info(m)
     lock_data.actions[:] = sorted(actions.values(), key=lambda a: a.id)
-    dump(lock_data, lock_file)
-    args.includes[0].mkdir(parents=True, exist_ok=True)
-    generated = args.includes[0] / "actions.py"
+    check = getattr(args, "check", False)
+    if not check:
+        args.includes[0].mkdir(parents=True, exist_ok=True)
     renderer = pystache.Renderer(search_dirs=[pathlib.Path(__file__).parent])
-    with open(generated, "w") as out:
-        out.write(renderer.render_name("actions", lock_data))
+    errors = write_or_diff(lock_file, dumps(lock_data), check) + write_or_diff(
+        args.includes[0] / "actions.py",
+        renderer.render_name("actions", lock_data),
+        check,
+    )
+    if errors:
+        raise DiffError(errors)
