@@ -1,4 +1,5 @@
 import io
+import os
 import pathlib
 import subprocess
 import textwrap
@@ -909,3 +910,71 @@ def test_trusted_owners(repo, mock_gh_api_call):
         -  trusted: false
         +  trusted: true
         """)
+
+
+@pytest.fixture
+def local_action_repo(repo):
+    repo.config("""\
+        uses:
+            foo: ./my/actions/foo
+        """)
+    repo.file(
+        "my/actions/foo/action.yml",
+        """\
+        name: Foo Action
+        inputs:
+            bar:
+                required: false
+        """,
+    )
+    repo.file(
+        ".github/workflows/wf.py",
+        """\
+        from src.ghgen.syntax import *
+
+
+        @workflow
+        def wf():
+            on.push()
+            run("echo hello")
+        """,
+    )
+    return repo
+
+
+def test_check_does_not_write(local_action_repo):
+    def files():
+        return {
+            p: p.read_bytes()
+            for p in pathlib.Path().rglob("*")
+            if p.is_file() and ".git" not in p.parts and "__pycache__" not in p.parts
+        }
+
+    before = files()
+    assert main(["--check"]) == 1
+    assert files() == before
+
+    assert main([]) == 0
+    assert pathlib.Path("gh-gen.lock").exists()
+    before = files()
+    assert main(["--check"]) == 0
+    assert files() == before
+
+
+def test_write_does_not_cross_directories(local_action_repo, monkeypatch):
+    # renaming across filesystems fails with EXDEV, e.g. from /tmp into the repo
+    def same_dir_only(orig):
+        def wrapper(src, dst, *args, **kwargs):
+            src, dst = pathlib.Path(src).resolve(), pathlib.Path(dst).resolve()
+            if src.parent != dst.parent:
+                raise OSError(18, "Invalid cross-device link")
+            return orig(src, dst, *args, **kwargs)
+
+        return wrapper
+
+    monkeypatch.setattr("os.replace", same_dir_only(os.replace))
+    monkeypatch.setattr("os.rename", same_dir_only(os.rename))
+    assert main([]) == 0
+    assert pathlib.Path("gh-gen.lock").exists()
+    assert pathlib.Path(".github/workflows/actions.py").exists()
+    assert pathlib.Path(".github/workflows/wf.yml").exists()

@@ -47,16 +47,20 @@ class Error:
 _this_dir = pathlib.Path(__file__).parent
 
 
+def _is_library_frame(frame: types.FrameType) -> bool:
+    # frames in this app or contextlib (that wraps some of our functions)
+    filename = frame.f_code.co_filename
+    return (
+        pathlib.Path(filename).is_relative_to(_this_dir)
+        or filename == contextlib.__file__
+    )
+
+
 def _get_user_frame() -> typing.Any:
     frame = inspect.currentframe()
 
     for frame in iter(lambda: frame.f_back, None):
-        filename = frame.f_code.co_filename
-        # get first frame out of this app or contextlib (that wraps some of our functions)
-        if not (
-            pathlib.Path(filename).is_relative_to(_this_dir)
-            or filename == contextlib.__file__
-        ):
+        if not _is_library_frame(frame):
             break
     return frame
 
@@ -85,45 +89,52 @@ def _parent_map(source: "executing.Source") -> dict[ast.AST, ast.AST] | None:
     return cached
 
 
+def _executing_stmt(frame: types.FrameType) -> ast.stmt | None:
+    """Statement enclosing the call currently executing in `frame`.
+
+    `None` if undetermined, or if the call is nested in a comprehension or lambda
+    (whose values are not bound to the enclosing assignment target).
+    """
+    source = executing.Source.for_frame(frame)
+    node = source.executing(frame).node
+    parents = _parent_map(source)
+    if node is None or parents is None:
+        return None
+    parent = parents.get(node)
+    while parent is not None and not isinstance(parent, ast.stmt):
+        if isinstance(
+            parent,
+            (ast.Lambda, ast.GeneratorExp, ast.ListComp, ast.SetComp, ast.DictComp),
+        ):
+            return None
+        parent = parents.get(parent)
+    return parent
+
+
 def _assigned_name() -> str | None:
     """Name of the variable the element being built is assigned to.
 
     Resolved eagerly at the assignment site from the user's frame, so it stays
     stable even when the element is later passed into a function and only used
-    there. Returns `None` when there is no plain `name = ...` assignment to infer
-    a name from (e.g. inline use, or a tuple/attribute target).
+    there. If the element is built in a `return` (e.g. by a helper like those
+    generated in `actions.py`), the caller's assignment is used instead.
+    Returns `None` when there is no plain `name = ...` assignment to infer a name
+    from (e.g. inline use, or a tuple/attribute target).
     """
     try:
         frame = _get_user_frame()
-        source = executing.Source.for_frame(frame)
-        node = source.executing(frame).node
-        parents = _parent_map(source)
-        if node is None or parents is None:
-            return None
-        stmt = node
-        parent = parents.get(stmt)
-        while parent is not None and not isinstance(parent, ast.stmt):
-            # A value built inside a comprehension or lambda is not bound to the
-            # enclosing assignment target, so don't borrow its name.
-            if isinstance(
-                parent,
-                (
-                    ast.Lambda,
-                    ast.GeneratorExp,
-                    ast.ListComp,
-                    ast.SetComp,
-                    ast.DictComp,
-                ),
-            ):
-                return None
-            stmt, parent = parent, parents.get(parent)
-        match parent:
-            case ast.Assign(targets=[ast.Name(id=name)]):
-                return name
-            case ast.AnnAssign(target=ast.Name(id=name)):
-                return name
-            case _:
-                return None
+        while frame is not None:
+            match _executing_stmt(frame):
+                case ast.Assign(targets=[ast.Name(id=name)]):
+                    return name
+                case ast.AnnAssign(target=ast.Name(id=name)):
+                    return name
+                case ast.Return():
+                    frame = frame.f_back
+                    if frame is not None and _is_library_frame(frame):
+                        return None
+                case _:
+                    return None
     except Exception:
         return None
 

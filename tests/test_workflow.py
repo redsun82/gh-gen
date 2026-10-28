@@ -776,6 +776,79 @@ def test_input_name_through_helper():
 
 
 @expect("""\
+    # generated from test_workflow.py::test_step_id_through_returning_helper
+    on:
+      workflow_dispatch: {}
+    defaults:
+      run:
+        shell: bash
+    jobs:
+      test_step_id_through_returning_helper:
+        runs-on: ubuntu-latest
+        steps:
+        - id: modules-cache
+          name: Cache node_modules
+          uses: actions/cache@v4
+          with:
+            path: node_modules
+        - if: steps.modules-cache.outputs.cache-hit != 'true'
+          run: npm ci
+        - id: build-cache
+          name: Cache
+          uses: actions/cache@v4
+          with:
+            path: dist
+        - if: steps.build-cache.outputs.cache-hit != 'true'
+          run: npm run build
+    """)
+def test_step_id_through_returning_helper():
+    # mirrors the helpers generated in `actions.py`: the id comes from the
+    # caller's assignment rather than from the helper's `return`
+    on.workflow_dispatch()
+
+    def cache(*, path):
+        return (
+            uses("actions/cache@v4")
+            .with_((("path", path),))
+            .name("Cache")
+            .outputs("cache-hit")
+        )
+
+    modules_cache = cache(path="node_modules").name("Cache node_modules")
+    run("npm ci").if_(modules_cache.outputs.cache_hit != "true")
+    build_cache: typing.Any = cache(path="dist")
+    run("npm run build").if_(build_cache.outputs.cache_hit != "true")
+
+
+@expect("""\
+    # generated from test_workflow.py::test_step_id_through_returning_helper_unassigned
+    on:
+      workflow_dispatch: {}
+    defaults:
+      run:
+        shell: bash
+    jobs:
+      test_step_id_through_returning_helper_unassigned:
+        runs-on: ubuntu-latest
+        steps:
+        - id: step-1
+          run: make a
+        - id: step-2
+          run: make b
+        - run: echo ${{ steps.step-1.outputs.result }} ${{ steps.step-2.outputs.result
+            }}
+    """)
+def test_step_id_through_returning_helper_unassigned():
+    # without an assignment at the call site, the default id is used
+    on.workflow_dispatch()
+
+    def make(target):
+        return run(f"make {target}").outputs("result")
+
+    run(t"echo {make("a").outputs.result} {make("b").outputs.result}")
+
+
+@expect("""\
     # generated from test_workflow.py::test_input_underscores
     on:
       workflow_dispatch:
