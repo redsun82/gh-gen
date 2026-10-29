@@ -517,6 +517,49 @@ class Job(Element):
         return _dictionarize(_set_flow_style(super().asdict(), "needs"), "services")
 
 
+class ActionInput(Element):
+    description: str
+    _: dataclasses.KW_ONLY
+    id: str
+    required: bool
+    default: str | bool | int | float
+    deprecation_message: str
+
+    def asdict(self) -> typing.Any:
+        ret = _flow_text(super().asdict(), "description")
+        if "deprecation-message" in ret:
+            ret["deprecationMessage"] = ret.pop("deprecation-message")
+        return ret
+
+
+class Branding(Element):
+    icon: str
+    color: str
+
+
+class CompositeRuns(Element):
+    using: str = "composite"
+    steps: list[Step] = field(default_factory=list)
+
+
+class Action(Element):
+    name: str
+    author: str
+    description: str
+    inputs: list[ActionInput]
+    outputs: list[Output]
+    branding: Branding
+    runs: CompositeRuns = field(default_factory=CompositeRuns)
+
+    def asdict(self) -> typing.Any:
+        ret = _dictionarize(
+            _flow_text(super().asdict(), "description"), "inputs", "outputs"
+        )
+        if "runs" in ret:
+            ret["runs"] = ret.pop("runs")
+        return ret
+
+
 class WorkflowDefaults(Element):
     class Run(Element):
         shell: str | None = "bash"

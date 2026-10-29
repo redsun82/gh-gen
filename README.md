@@ -62,6 +62,7 @@ jobs:
   - [`run_name`](#run_name)
   - [`permissions`](#permissions)
   - [`env`, `concurrency`, `defaults`](#env-concurrency-defaults)
+- [Composite actions](#composite-actions)
 - [Builder reference](#builder-reference)
 
 ## Installation
@@ -135,6 +136,8 @@ them in sync.
   imports them, and generates one YAML file per `@workflow`-decorated function.
 - The output file is `<function-name>.yml`, written to `--output-directory` (default
   `.github/workflows`). Override the function-derived id with `@workflow(id="my-id")`.
+- `@action`-decorated functions generate composite actions instead; see
+  [Composite actions](#composite-actions).
 - Everything you need is exported by `ghgen.syntax`, so `from ghgen.syntax import *` is the
   idiomatic import.
 - **Implicit job.** If you call step/job builders (`run`, `uses`, `runs_on`, …) directly at
@@ -617,6 +620,116 @@ defaults.run.working_directory("foo")
 `concurrency` and `defaults` are also callable inside `@job` for job-scoped settings, and
 `env(...)` accepts either keyword arguments or a mapping.
 
+## Composite actions
+
+Decorate a function with `@action` to generate a composite action. Its body uses the same
+step builders as a job, plus:
+
+- `description(...)` (required), `author(...)`, `branding(icon=..., color=...)`;
+- `on.input(...)` for `inputs` (also accepts `deprecation_message=`);
+- `output(...)` for `outputs`, taking its id from the value's last segment unless `id=` is given.
+
+The action is written to `.github/actions/<id>/action.yml`; pass `@action(path="some/dir")`
+to choose the directory (`path="."` writes the repository root `action.yml`). `run` steps get
+`shell: bash` unless one is set.
+
+Calling the decorated function from a workflow or another action adds a step using it via
+`$/<path>` (an [action in the same repository at the running commit][same-repo]). Keyword
+arguments become `with` inputs and are checked against the action's inputs; outputs are
+available on the returned step.
+
+[same-repo]: https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax#example-using-an-action-in-the-same-repository-as-the-workflow-at-the-running-commit-recommended
+
+With this in `.github/workflows/ci.py`:
+
+<!-- readme-test: expect-yaml -->
+```python
+@action
+def setup_tools():
+    name("Setup tools")
+    description("Install the toolchain")
+    version = on.input("Tool version", default="1.0")
+    uses("actions/setup-node@v4", node_version=20)
+    cache = uses(
+        "actions/cache@v4", path="~/.tools", key=t"tools-{runner.os}"
+    ).outputs("cache-hit")
+    install = run(t"""
+        "$GITHUB_ACTION_PATH/install.sh" {version}
+        echo "path=$HOME/.tools" >> "$GITHUB_OUTPUT"
+    """).if_(cache.outputs.cache_hit != "true").outputs("path")
+    output("Install location", value=install.outputs.path)
+
+
+@workflow
+def ci():
+    on.push()
+    uses("actions/checkout@v4")
+    tools = setup_tools(version="2.0")
+    run(t"ls {tools.outputs.path}")
+```
+
+`gh gen` writes `.github/actions/setup_tools/action.yml`:
+
+```yaml
+# generated from ci.py::setup_tools
+name: Setup tools
+description: Install the toolchain
+inputs:
+  version:
+    description: Tool version
+    default: '1.0'
+outputs:
+  path:
+    description: Install location
+    value: ${{ steps.install.outputs.path }}
+runs:
+  using: composite
+  steps:
+  - name: Setup node
+    uses: actions/setup-node@v4
+    with:
+      node-version: 20
+  - id: cache
+    name: Cache
+    uses: actions/cache@v4
+    with:
+      path: ~/.tools
+      key: tools-${{ runner.os }}
+  - id: install
+    if: steps.cache.outputs.cache-hit != 'true'
+    run: |
+      "$GITHUB_ACTION_PATH/install.sh" ${{ inputs.version }}
+      echo "path=$HOME/.tools" >> "$GITHUB_OUTPUT"
+    shell: bash
+```
+
+and `.github/workflows/ci.yml`:
+
+```yaml
+# generated from ci.py::ci
+on:
+  push: {}
+defaults:
+  run:
+    shell: bash
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+    - id: tools
+      name: Setup tools
+      uses: $/.github/actions/setup_tools
+      with:
+        version: '2.0'
+    - run: ls ${{ steps.tools.outputs.path }}
+```
+
+Workflow- and job-only features (`runs_on`, `env`, `secrets`, `outputs`, step
+`timeout_minutes`, …) are reported as errors inside an action. `$/` references are not
+supported on GitHub Enterprise Server.
+
 ## Builder reference
 
 | Builder | Generated key | Scope |
@@ -646,6 +759,11 @@ defaults.run.working_directory("foo")
 | `.if_(...)` | `if` | job / step |
 | `.shell(...)`, `.working_directory(...)` | `steps[].shell` / `working-directory` | step |
 | `.outputs(...)` | `steps[].id` + job `outputs` wiring | step |
+| `@action` | `<path>/action.yml` | file |
+| `description(...)`, `author(...)`, `branding(...)` | same keys | action |
+| `on.input(...)` | `inputs.<id>` | action |
+| `output(...)` | `outputs.<id>` | action |
+| `<action>(...)` | `steps[].uses: $/<path>` | step |
 
 For the complete, executable specification of every builder and its output, browse
 [`tests/test_workflow.py`](./tests/test_workflow.py).

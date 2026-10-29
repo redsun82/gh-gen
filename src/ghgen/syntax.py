@@ -194,6 +194,8 @@ class _Context(ContextBase):
         self.reset_job()
         self.current_workflow = None
         self.current_workflow_id = None
+        self.current_action = None
+        self.current_action_id = None
         self.auto_job_reason = None
         self.errors = []
 
@@ -207,35 +209,40 @@ class _Context(ContextBase):
             and not self.current_job
             and not self.current_workflow_id
             and not self.current_job_id
+            and not self.current_action
             and not self.auto_job_reason
         )
 
     def make_error(self, message: str, id: str | None = None) -> Error:
         frame = _get_user_frame_info()
         return Error(
-            frame.filename, frame.lineno, id or self.current_workflow_id, message
+            frame.filename,
+            frame.lineno,
+            id or self.current_workflow_id or self.current_action_id,
+            message,
         )
 
     def error(self, message: str):
         error = self.make_error(message)
-        if self.current_workflow:
+        if self.current_workflow or self.current_action:
             self.errors.append(error)
         else:
             # raise immediately
             raise GenerationError([error])
+
+    def process_final_steps(self, steps: list[Step], where: str):
+        for i, s in enumerate(steps, 1):
+            if s.with_ and not s.uses is not None:
+                _ctx.error(f"step `{s.id or i}` in {where} has a `with` but no `uses`")
+            elif s.uses is None and s.run is None:
+                s.run = ""
 
     def process_final_workflow(self):
         w = self.current_workflow
         assert w is not None
         id = self.current_workflow_id
         for j_id, j in w.jobs.items():
-            for i, s in enumerate(j.steps or (), 1):
-                if s.with_ and not s.uses is not None:
-                    _ctx.error(
-                        f"step `{s.id or i}` in job `{j_id}` has a `with` but no `uses`"
-                    )
-                elif s.uses is None and s.run is None:
-                    s.run = ""
+            self.process_final_steps(j.steps or [], f"job `{j_id}`")
             if j.steps and j.runs_on is None:
                 j.runs_on = default_runner
         self.check(
@@ -269,6 +276,49 @@ class _Context(ContextBase):
                     raise GenerationError(self.errors)
             finally:
                 self.reset()
+
+    def process_final_action(self):
+        a = self.current_action
+        id = self.current_action_id
+        a.runs.steps = self.current_job.steps or []
+        self.process_final_steps(a.runs.steps, f"action `{id}`")
+        for s in a.runs.steps:
+            if s.run is not None and s.shell is None:
+                s.shell = "bash"
+        self.check(a.name, f"action `{id}` must have a `name`")
+        self.check(a.description, f"action `{id}` must have a `description`")
+        self.check(a.runs.steps, f"action `{id}` must have at least one step")
+        unset_outputs = [o.id for o in a.outputs or () if o.value is None]
+        self.check(
+            not unset_outputs,
+            f"action `{id}` has no value set for {', '.join(unset_outputs)}",
+        )
+
+    @contextlib.contextmanager
+    def build_action(self, id: str) -> typing.Generator[Action, None, None]:
+        assert self.empty()
+        self.current_action = Action()
+        self.current_action_id = id
+        # steps are collected in a placeholder job, so step builders and rules work unchanged
+        self.reset_job(Job(), id)
+        with on_error(lambda message: self.error(message)):
+            try:
+                yield self.current_action
+                self.process_final_action()
+                if self.errors:
+                    raise GenerationError(self.errors)
+            finally:
+                self.reset()
+
+    @contextlib.contextmanager
+    def suspended(self) -> typing.Generator[None, None, None]:
+        """Temporarily clear the build state, to build another element in isolation."""
+        saved = dict(self.__dict__)
+        self.reset()
+        try:
+            yield
+        finally:
+            self.__dict__.update(saved)
 
     @contextlib.contextmanager
     def build_job(self, id: str) -> typing.Generator[Job, None, None]:
@@ -405,7 +455,23 @@ def _get_workflow(path: str) -> Workflow:
     return _ctx.current_workflow
 
 
+def _get_action(path: str) -> Action:
+    a = _ctx.current_action
+    if a is None:
+        _ctx.error(f"`{path}` must be used in an action")
+        return Action()
+    # id element builders report their field in singular form (e.g. `input`)
+    if not any(f.name in (path, f"{path}s") for f in fields(a)):
+        hint = ", use `output` instead" if path == "outputs" else ""
+        _ctx.error(f"`{path}` cannot be used in an action{hint}")
+        return Job()
+    return a
+
+
 def _get_job(path: str) -> Job:
+    # in an action, only steps go to the placeholder job; anything else is checked against the action
+    if _ctx.current_action is not None and path != "step":
+        return _get_action(path)
     if _ctx.current_job is None:
         if _ctx.current_workflow:
             return _ctx.auto_job(path)
@@ -415,6 +481,8 @@ def _get_job(path: str) -> Job:
 
 
 def _get_job_or_workflow(path: str) -> Workflow | Job:
+    if _ctx.current_action is not None:
+        return _get_action(path)
     ret = _ctx.current_job or _ctx.current_workflow
     if ret is None:
         _ctx.error(f"`{path}` must be used in a workflow or a job")
@@ -703,11 +771,50 @@ class _OnUpdater(_Updater):
             return on
 
     @dataclass(eq=False)
-    class _Input(ProxyExpr, _IdElementUpdater[Input]):
+    class _InputBase[T](ProxyExpr, _IdElementUpdater[T]):
         def __init__(self, *args, **kwargs):
             ProxyExpr.__init__(self)
             _IdElementUpdater.__init__(self, *args, **kwargs)
 
+        def required(self, value: bool = True) -> typing.Self:
+            return self._update("required", _value, value)
+
+        def description(self, value: str | None) -> typing.Self:
+            return self._update("description", _text, value)
+
+        def default(self, value: typing.Any) -> typing.Self:
+            return self._update("default", _value, value)
+
+        def _get_expr(self) -> Expr:
+            if not self._instantiated:
+                return ~ErrorExpr("`input` alone cannot be used in an expression")
+            id = self.ensure_id()
+            return getattr(Contexts.inputs, id)
+
+    @dataclass(eq=False)
+    class _ActionInput(_InputBase[ActionInput]):
+        def __call__(
+            self,
+            description: str | None = None,
+            *,
+            id: str | None = None,
+            required: bool | None = None,
+            default: typing.Any = None,
+            deprecation_message: str | None = None,
+        ) -> typing.Self:
+            return (
+                self.description(description)
+                .required(required)
+                .id(id)
+                .default(default)
+                .deprecation_message(deprecation_message)
+            )
+
+        def deprecation_message(self, value: str | None) -> typing.Self:
+            return self._update("deprecation_message", _value, value)
+
+    @dataclass(eq=False)
+    class _Input(_InputBase[Input]):
         def _ensure(self) -> typing.Self:
             instantated = self._instantiated
             ret = super()._ensure()
@@ -740,12 +847,6 @@ class _OnUpdater(_Updater):
                 .default(default)
             )
 
-        def required(self, value: bool = True) -> typing.Self:
-            return self._update("required", _value, value)
-
-        def description(self, value: str | None) -> typing.Self:
-            return self._update("description", _text, value)
-
         def type(self, value: str | None) -> typing.Self:
             return self._update("type", _value, value)._post_process()
 
@@ -754,7 +855,7 @@ class _OnUpdater(_Updater):
 
         def default(self, value: typing.Any) -> typing.Self:
             # TODO check type when it is already set
-            return self._update("default", _value, value)._post_process()
+            return super().default(value)._post_process()
 
         def _post_process(self) -> typing.Self:
             el = self._element
@@ -763,12 +864,6 @@ class _OnUpdater(_Updater):
             except ValueError as e:
                 _ctx.error(e.args[0])
             return self
-
-        def _get_expr(self) -> Expr:
-            if not self._instantiated:
-                return ~ErrorExpr("`input` alone cannot be used in an expression")
-            id = self.ensure_id()
-            return getattr(Contexts.inputs, id)
 
     class _WorkflowDispatch(_Updater):
         @property
@@ -843,6 +938,8 @@ class _OnUpdater(_Updater):
 
     @property
     def input(self) -> _Input:
+        if _ctx.current_action is not None:
+            return self._ActionInput(_get_action, ("inputs", "*"))
         _check_workflow_dispatch_max_inputs()
         return self._sub_updater(self._Input, "inputs", "*")
 
@@ -872,6 +969,46 @@ on = _OnUpdater(_get_workflow, ("on",))
 
 def name(name: str):
     _update_element(_get_job_or_workflow, "name", _value, name)
+
+
+def description(text: str):
+    _update_element(_get_action, "description", _text, text)
+
+
+def author(name: str):
+    _update_element(_get_action, "author", _value, name)
+
+
+def branding(*, icon: str | None = None, color: str | None = None):
+    _update_element(_get_action, "branding", _value, Branding(icon=icon, color=color))
+
+
+@dataclass(eq=False)
+class _ActionOutputUpdater(_IdElementUpdater[Output]):
+    def __call__(
+        self,
+        description: str | None = None,
+        *,
+        id: str | None = None,
+        value: Value | None = None,
+    ) -> typing.Self:
+        return self.description(description).id(id).value(value)
+
+    def description(self, value: str | None) -> typing.Self:
+        return self._update("description", _text, value)
+
+    def value(self, value: Value | None) -> typing.Self:
+        ret = self._update("value", _value, value)
+        el = ret._element
+        # `output(value=steps.foo.outputs.bar)` defaults its id to `bar`
+        if getattr(el, "_suggested_id", None) is None and isinstance(value, RefExpr):
+            el._suggested_id = value._segments[-1]
+        if value is not None:
+            ret.ensure_id()
+        return ret
+
+
+output = _ActionOutputUpdater(_get_action, ("outputs", "*"))
 
 
 def run_name(name: Value):
@@ -1108,7 +1245,7 @@ class _JobCallUpdater:
 
 
 _action_regex = re.compile(
-    r"^(?a:(\.)|[\w-]+)/[^@]*?(?P<action_name>[^/@]+)(?(1)|@[\w./-]+)$"
+    r"^(?a:(\.|\$)|[\w-]+)/[^@]*?(?P<action_name>[^/@]+)(?(1)|@[\w./-]+)$"
 )
 
 _reusable_workflow_regex = re.compile(
@@ -1137,6 +1274,9 @@ def uses(target: str, **kwargs: Value) -> typing.Union[_JobCallUpdater, "_StepUp
 
 
 def outputs(*args: typing.Union[RefExpr, "_StepUpdater"], **kwargs: typing.Any):
+    if _ctx.current_action is not None:
+        _ctx.error("`outputs` cannot be used in an action, use `output` instead")
+        return
     for arg in args:
         match arg:
             case RefExpr(_segments=(*_, id)):
@@ -1221,6 +1361,60 @@ class WorkflowInfo:
                 _ctx.errors += self.errors
                 self.spec()
         return self._workflow
+
+
+@dataclass
+class ActionInfo:
+    id: str
+    spec: typing.Callable[..., None]
+    file: pathlib.Path
+    path: str
+
+    _action: Action | None = None
+
+    @property
+    def action(self) -> Action:
+        if self._action is None:
+            with _ctx.build_action(self.id) as action:
+                self.spec()
+            self._action = action
+        return self._action
+
+    def __call__(self, **inputs: Value) -> "_StepUpdater":
+        """Add a step using this action, referenced with `$/` (same repository, running commit)."""
+        with _ctx.suspended():
+            a = self.action
+        declared = [i.id for i in a.inputs or ()]
+        given = {Element._key(k) for k, v in inputs.items() if v is not None}
+        if unknown := sorted(given.difference(declared)):
+            _ctx.error(f"action `{self.id}` has no inputs {', '.join(unknown)}")
+        if missing := [
+            i.id
+            for i in a.inputs or ()
+            if i.required and i.default is None and i.id not in given
+        ]:
+            _ctx.error(f"action `{self.id}` requires inputs {', '.join(missing)}")
+        ret = step.uses(f"$/{self.path}", **inputs).name(a.name)
+        if a.outputs:
+            ret = ret.outputs(*(o.id for o in a.outputs))
+        return ret
+
+
+def action(
+    func: typing.Callable[..., None] | None = None,
+    *,
+    id: str | None = None,
+    path: str | None = None,
+) -> typing.Callable[[typing.Callable[..., None]], ActionInfo] | ActionInfo:
+    """Define a composite action, generated into `<path>/action.yml`.
+
+    `path` is a directory relative to the repository root, `.github/actions/<id>` by default.
+    """
+    if func is None:
+        return lambda func: action(func, id=id, path=path)
+    id = id or func.__name__
+    path = pathlib.PurePosixPath(path or f".github/actions/{id}").as_posix()
+    return ActionInfo(id, func, file=pathlib.Path(inspect.getfile(func)), path=path)
 
 
 def workflow(
@@ -1417,6 +1611,8 @@ class _StepUpdater(ProxyExpr, _IdElementUpdater[Step]):
         return self._update("continue_on_error", _value, value)
 
     def timeout_minutes(self, value: Value) -> typing.Self:
+        if _ctx.current_action is not None and value is not None:
+            _ctx.error("composite action steps do not support `timeout-minutes`")
         return self._update("timeout_minutes", _value, value)
 
     def with_(

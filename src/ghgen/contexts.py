@@ -78,7 +78,7 @@ class Contexts:
 
     class Github(RefExpr):
         action: RefExpr
-        # action_path: RefExpr
+        action_path: RefExpr
         action_ref: RefExpr
         action_repository: RefExpr
         # action_status: RefExpr
@@ -142,6 +142,8 @@ class ContextBase(threading.local, RuleSet):
     current_job: Job | None = None
     current_workflow_id: str | None = None
     current_job_id: str | None = None
+    current_action: Action | None = None
+    current_action_id: str | None = None
 
     def _knows_step_id(self, target: typing.Any, id: str) -> bool:
         if not self.current_job:
@@ -178,7 +180,9 @@ class ContextBase(threading.local, RuleSet):
             self.current_job,
             "`steps` can only be used in a job, did you forget a `@job` decoration?",
         ) and self.check(
-            isinstance(target, Step) or field == "outputs",
+            isinstance(target, Step)
+            or field == "outputs"
+            or (self.current_action and isinstance(target, Output)),
             "`steps` can only be used while constructing a step or setting outputs",
         )
 
@@ -326,6 +330,9 @@ class ContextBase(threading.local, RuleSet):
     @rule(secrets)
     def v(self, *, target: typing.Any = None, **kwargs) -> bool:
         return self.check(
+            not self.current_action,
+            "`secrets` cannot be used in an action, pass them as inputs instead",
+        ) and self.check(
             not isinstance(target, Concurrency),
             "`secrets` cannot be used in `concurrency`",
         )

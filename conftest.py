@@ -6,8 +6,8 @@ import textwrap
 
 import pytest
 
-from ghgen.syntax import workflow, GenerationError
-from src.ghgen.commands.generate import generate_workflow
+from ghgen.syntax import action, workflow, GenerationError
+from src.ghgen.commands.generate import generate_action, generate_workflow
 from src.ghgen.commands.utils import project_dir
 import pathlib
 import inspect
@@ -51,15 +51,31 @@ def pytest_configure(config: pytest.Config):
     config.stash[_learn] = []
 
 
+def _generate_workflow(f) -> pathlib.Path:
+    return generate_workflow(workflow(f), pathlib.Path(inspect.getfile(f)).parent)
+
+
+def _generate_action(f) -> pathlib.Path:
+    output = pathlib.Path(inspect.getfile(f)).parent / f"{f.__name__}.action.yml"
+    return generate_action(action(f), output)
+
+
 def expect(expected: str | None = None):
-    assert not callable(expected), "replace @expect with @expect()"
+    return _expect(expected, Call.get(), _generate_workflow)
+
+
+def expect_action(expected: str | None = None):
+    """Like `expect`, but generates `f` as a composite action."""
+    return _expect(expected, Call.get(), _generate_action)
+
+
+def _expect(expected: str | None, call: Call, generate):
+    assert not callable(expected), f"replace @{call.name} with @{call.name}()"
     expected = expected and textwrap.dedent(expected)
-    call = Call.get()
 
     def decorator(f):
         def wrapper(pytestconfig: pytest.Config):
-            wf = workflow(f)
-            output = generate_workflow(wf, pathlib.Path(inspect.getfile(f)).parent)
+            output = generate(f)
             with open(output) as out:
                 actual = [l.rstrip("\n") for l in out]
             if expected is None or pytestconfig.getoption("--learn"):
@@ -150,6 +166,15 @@ def expect_errors(func):
         with error:
             wf = workflow(lambda: func(error), id=func.__name__)
             _ = wf.worfklow
+
+    return wrapper
+
+
+def expect_action_errors(func):
+    def wrapper(error):
+        error.id = func.__name__
+        with error:
+            _ = action(lambda: func(error), id=func.__name__).action
 
     return wrapper
 
