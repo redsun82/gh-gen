@@ -189,6 +189,7 @@ def _typecheck(val: typing.Any, ty: typing.Type) -> bool:
 class _Context(ContextBase):
     auto_job_reason: str | None = None
     errors: list[Error] = field(default_factory=list)
+    action_dependencies: list["ActionInfo"] = field(default_factory=list)
 
     def reset(self):
         self.reset_job()
@@ -198,6 +199,7 @@ class _Context(ContextBase):
         self.current_action_id = None
         self.auto_job_reason = None
         self.errors = []
+        self.action_dependencies = []
 
     def reset_job(self, job: Job | None = None, job_id: str | None = None):
         self.current_job = job
@@ -1372,6 +1374,7 @@ class WorkflowInfo:
     file: pathlib.Path
 
     _workflow: Workflow | None = None
+    action_dependencies: list["ActionInfo"] = field(default_factory=list)
 
     @property
     def worfklow(self) -> Workflow:
@@ -1381,6 +1384,7 @@ class WorkflowInfo:
                     e.workflow_id = e.workflow_id or current_workflow_id()
                 _ctx.errors += self.errors
                 self.spec()
+                self.action_dependencies = list(_ctx.action_dependencies)
         return self._workflow
 
 
@@ -1392,12 +1396,14 @@ class ActionInfo:
     path: str
 
     _action: Action | None = None
+    action_dependencies: list["ActionInfo"] = field(default_factory=list)
 
     @property
     def action(self) -> Action:
         if self._action is None:
             with _ctx.build_action(self.id) as action:
                 self.spec()
+                self.action_dependencies = list(_ctx.action_dependencies)
             self._action = action
         return self._action
 
@@ -1405,6 +1411,7 @@ class ActionInfo:
         """Add a step using this action, referenced with `$/` (same repository, running commit)."""
         with _ctx.suspended():
             a = self.action
+        _ctx.action_dependencies.append(self)
         declared = [i.id for i in a.inputs or ()]
         resolved = {
             (k if k in declared else Element._key(k)): v

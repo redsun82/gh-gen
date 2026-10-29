@@ -4,6 +4,7 @@ import logging
 import sys
 import pathlib
 import io
+from collections import deque
 
 from ruamel.yaml import CommentedMap
 
@@ -71,6 +72,7 @@ def generate_all(opts: argparse.Namespace) -> int:
     inputs = getattr(opts, "inputs", None) or opts.includes
     failed = False
     found = False
+    seen: dict[int, WorkflowInfo | ActionInfo] = {}
     for i in inputs:
         logging.debug(f"@ {i}")
         for f in i.glob("*.py"):
@@ -78,16 +80,25 @@ def generate_all(opts: argparse.Namespace) -> int:
             spec = importlib.util.spec_from_file_location(f.name, str(f))
             mod = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(mod)
-            for k, v in mod.__dict__.items():
-                if isinstance(v, (WorkflowInfo, ActionInfo)):
-                    found = True
-                    try:
-                        output = _generate(v, opts)
-                        logging.info(f"{'✅' if opts.check else '→'} {output}")
-                    except (GenerationError, DiffError) as e:
-                        failed = True
-                        for error in e.errors:
-                            logging.error(error)
+            pending = deque(
+                v
+                for v in mod.__dict__.values()
+                if isinstance(v, (WorkflowInfo, ActionInfo))
+            )
+            while pending:
+                v = pending.popleft()
+                if id(v) in seen:
+                    continue
+                seen[id(v)] = v
+                found = True
+                try:
+                    output = _generate(v, opts)
+                    logging.info(f"{'✅' if opts.check else '→'} {output}")
+                except (GenerationError, DiffError) as e:
+                    failed = True
+                    for error in e.errors:
+                        logging.error(error)
+                pending.extend(v.action_dependencies)
     if not found:
         logging.error("no workflows or actions found")
         return 2

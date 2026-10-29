@@ -1,3 +1,8 @@
+import subprocess
+import sys
+
+import pytest
+
 from conftest import expect, expect_action, expect_action_errors, expect_errors
 from ghgen.syntax import *
 
@@ -399,3 +404,87 @@ def test_input_output_in_workflow():
         outputs(x=1)
 
     output("forwarded", value=j.outputs.x)
+
+
+@pytest.mark.parametrize("root_kind", ["workflow", "action"])
+def test_generate_called_actions(repo, root_kind):
+    repo.file(
+        "action_dependency_helpers.py",
+        """\
+        from ghgen.syntax import *
+
+        @action
+        def leaf():
+            name("Leaf")
+            description("Imported leaf")
+            run("true")
+
+        @action
+        def wrapper():
+            name("Wrapper")
+            description("Imported wrapper")
+            leaf()
+        """,
+    )
+    setup = (
+        "on.workflow_dispatch()"
+        if root_kind == "workflow"
+        else 'name("Root"); description("Root action")'
+    )
+    repo.file(
+        ".github/workflows/entry.py",
+        f"""\
+        import action_dependency_helpers as helpers
+        from ghgen.syntax import *
+
+        # Dependencies must survive a cached action build.
+        helpers.wrapper.action
+
+        @{root_kind}
+        def root():
+            {setup}
+
+            @action
+            def local():
+                name("Local")
+                description("Workflow-local action")
+                helpers.wrapper()
+
+            local()
+            local()
+        """,
+    )
+    command = [
+        sys.executable,
+        "-c",
+        "import sys; from ghgen import main; raise SystemExit(main(sys.argv[1:]))",
+    ]
+
+    def generate(*args):
+        return subprocess.run(command + list(args), capture_output=True, text=True)
+
+    result = generate("--check")
+    assert result.returncode == 1
+    assert "leaf/action.yml" in result.stderr
+    assert not list(repo.path.rglob("*.yml"))
+
+    result = generate()
+    assert result.returncode == 0, result.stderr
+    expected = {
+        repo.path / ".github/actions" / action_id / "action.yml"
+        for action_id in ("local", "wrapper", "leaf")
+    }
+    expected.add(
+        repo.path / ".github/workflows/root.yml"
+        if root_kind == "workflow"
+        else repo.path / ".github/actions/root/action.yml"
+    )
+    assert set(repo.path.rglob("*.yml")) == expected
+    assert generate("--check").returncode == 0
+
+    leaf = repo.path / ".github/actions/leaf/action.yml"
+    leaf.unlink()
+    result = generate("--check")
+    assert result.returncode == 1
+    assert "leaf/action.yml" in result.stderr
+    assert not leaf.exists()
