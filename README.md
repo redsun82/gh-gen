@@ -248,16 +248,16 @@ arguments or via the matching methods (`on.push.branches(...)`, `on.pull_request
 
 ### Inputs and secrets
 
-`on.workflow_dispatch` and `on.workflow_call` expose typed inputs; `on.input(...)` adds an
-input to every trigger that supports one. Each input builder returns an expression you can
-interpolate directly:
+`on.workflow_dispatch` and `on.workflow_call` expose typed inputs; `input(...)` (or
+`on.input(...)`) adds an input to every trigger that supports one. Each input builder returns
+an expression you can interpolate directly:
 
 ```python
 @workflow
 def release():
     on.workflow_dispatch().workflow_call()
-    version = on.input("the version to release").required()
-    verbose = on.input.default(False)
+    version = input("the version to release").required()
+    verbose = input.default(False)
     run(t"echo releasing {version} (verbose={verbose})")
 ```
 
@@ -293,7 +293,8 @@ jobs:
     - run: echo releasing ${{ inputs.version }} (verbose=${{ inputs.verbose }})
 ```
 
-Choice inputs use `.options(...)`, and `on.workflow_call.secret(...)` declares secrets. See
+Choice inputs use `.options(...)`, `on.workflow_call.secret(...)` declares secrets, and
+`output(...)` (or `on.workflow_call.output(...)`) declares outputs. See
 `tests/test_workflow.py::test_workflow_call` for the full surface.
 
 An input, secret, or output with no explicit `.id(...)` takes its id from the variable it is
@@ -737,9 +738,9 @@ supported on GitHub Enterprise Server.
 | `name(...)` | `name` | workflow / job |
 | `run_name(...)` | `run-name` | workflow |
 | `on.<trigger>(...)` | `on.<trigger>` | workflow |
-| `on.input(...)`, `on.<trigger>.input(...)` | `on.*.inputs.<id>` | workflow |
+| `input(...)`, `on.input(...)`, `on.<trigger>.input(...)` | `on.*.inputs.<id>` | workflow |
 | `on.workflow_call.secret(...)` | `on.workflow_call.secrets.<id>` | workflow |
-| `on.workflow_call.output(...)` | `on.workflow_call.outputs.<id>` | workflow |
+| `output(...)`, `on.workflow_call.output(...)` | `on.workflow_call.outputs.<id>` | workflow |
 | `permissions(...)` | `permissions` | workflow / job |
 | `env(...)` | `env` | workflow / job |
 | `concurrency(...)` | `concurrency` | workflow / job |

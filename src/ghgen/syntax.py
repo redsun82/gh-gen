@@ -920,10 +920,15 @@ class _OnUpdater(_Updater):
             def value(self, value: Value | None):
                 ret = self._ensure()
                 if value is not None:
+                    el = ret._element
+                    # `output(value=steps.foo.outputs.bar)` defaults its id to `bar`
+                    if getattr(el, "_suggested_id", None) is None and isinstance(
+                        value, RefExpr
+                    ):
+                        el._suggested_id = value._segments[-1]
                     ret.ensure_id()
-                # workflow-call outputs reference producing jobs via `jobs.<id>`,
-                # but inside a job those refs are written as `needs.<id>`; rewrite them.
-                if value is not None:
+                    # workflow-call outputs reference producing jobs via `jobs.<id>`,
+                    # but inside a job those refs are written as `needs.<id>`; rewrite them.
                     value = rewrite_ref_root(value, "needs", "jobs")
                 ret._update("value", _value, value)
                 return ret
@@ -984,33 +989,35 @@ def branding(*, icon: str | None = None, color: str | None = None):
     _update_element(_get_action, "branding", _value, Branding(icon=icon, color=color))
 
 
-@dataclass(eq=False)
-class _ActionOutputUpdater(_IdElementUpdater[Output]):
-    def __call__(
-        self,
-        description: str | None = None,
-        *,
-        id: str | None = None,
-        value: Value | None = None,
-    ) -> typing.Self:
-        return self.description(description).id(id).value(value)
+class _ContextualUpdater:
+    """Dispatches to an action or a workflow builder, depending on what is being built."""
 
-    def description(self, value: str | None) -> typing.Self:
-        return self._update("description", _text, value)
+    def __init__(self, for_action, for_workflow):
+        self._for_action = for_action
+        self._for_workflow = for_workflow
 
-    def value(self, value: Value | None) -> typing.Self:
-        ret = self._update("value", _value, value)
-        el = ret._element
-        # `output(value=steps.foo.outputs.bar)` defaults its id to `bar`
-        if getattr(el, "_suggested_id", None) is None and isinstance(value, RefExpr):
-            el._suggested_id = value._segments[-1]
-        if value is not None:
-            ret.ensure_id()
-        return ret
+    def _target(self):
+        if _ctx.current_action is not None:
+            return self._for_action()
+        return self._for_workflow()
+
+    def __call__(self, *args, **kwargs):
+        return self._target()(*args, **kwargs)
+
+    def __getattr__(self, name: str):
+        return getattr(self._target(), name)
 
 
-input = _OnUpdater._ActionInput(_get_action, ("inputs", "*"))
-output = _ActionOutputUpdater(_get_action, ("outputs", "*"))
+# `on.input` in a workflow
+input = _ContextualUpdater(
+    lambda: _OnUpdater._ActionInput(_get_action, ("inputs", "*")),
+    lambda: on.input,
+)
+# `on.workflow_call.output` in a workflow
+output = _ContextualUpdater(
+    lambda: _OnUpdater._WorkflowCall._Output(_get_action, ("outputs", "*")),
+    lambda: on.workflow_call.output,
+)
 
 
 def run_name(name: Value):

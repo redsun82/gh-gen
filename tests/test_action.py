@@ -257,11 +257,44 @@ def test_action_needs_outputs_set(error):
         _ = a.action
 
 
-@expect_errors
-def test_action_builders_in_workflow(error):
+@expect("""\
+    # generated from test_action.py::test_input_output_in_workflow
+    on:
+      workflow_call:
+        outputs:
+          x:
+            description: forwarded
+            value: ${{ jobs.j.outputs.x }}
+      workflow_dispatch:
+        inputs:
+          version:
+            description: the version
+            required: false
+            default: '1.0'
+            type: string
+          verbose:
+            required: false
+            default: false
+            type: boolean
+    defaults:
+      run:
+        shell: bash
+    jobs:
+      j:
+        runs-on: ubuntu-latest
+        outputs:
+          x: 1
+        steps:
+        - run: echo ${{ inputs.version }} ${{ inputs.verbose }}
+    """)
+def test_input_output_in_workflow():
     on.workflow_dispatch()
-    error("`input` must be used in an action")
-    input("x")
-    error("`output` must be used in an action")
-    output("y", value=1)
-    run("true")
+    version = input("the version", default="1.0")
+    verbose = input.default(False)
+
+    @job
+    def j():
+        run(t"echo {version} {verbose}")
+        outputs(x=1)
+
+    output("forwarded", value=j.outputs.x)
