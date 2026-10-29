@@ -6,27 +6,29 @@ drift as the DSL evolves.
 
 Which blocks run is decided conservatively:
 
-* a block containing ``@workflow`` is run as written;
+* a block containing ``@workflow`` or ``@action`` is run as written;
 * a block containing only ``@job`` is wrapped in a minimal workflow and run;
 * anything else (bare snippets, shell blocks) is skipped.
 
 A block can opt out with ``<!-- readme-test: skip -->`` on the line before its fence
 (used for the typed-actions example, which needs a generated ``actions`` module), or
-request an exact-output check against the following ``yaml`` block with
-``<!-- readme-test: expect-yaml -->``.
+request an exact-output check with ``<!-- readme-test: expect-yaml -->``: each generated
+file, in definition order, is compared against the ``yaml`` blocks that follow (up to the
+next ``python`` block).
 
 Examples must also use t-strings for context interpolation; a block that falls back to
 the deprecated f-string path fails the guard.
 """
 
 import pathlib
+import runpy
 import textwrap
 import warnings
 
 import pytest
 
-from ghgen.syntax import workflow, WorkflowInfo
-from src.ghgen.commands.generate import generate_workflow
+from ghgen.syntax import ActionInfo, WorkflowInfo
+from src.ghgen.commands.generate import generate_action, generate_workflow
 
 README = pathlib.Path(__file__).parent.parent / "README.md"
 
@@ -86,7 +88,7 @@ def _collect_cases():
             continue
         if directive == "skip":
             continue
-        if "@workflow" in code:
+        if "@workflow" in code or "@action" in code:
             runnable = code
         elif "@job" in code:
             runnable = _wrap_job_block(code)
@@ -95,10 +97,12 @@ def _collect_cases():
 
         expected_yaml = None
         if directive == "expect-yaml":
+            expected_yaml = []
             for lang2, code2, _ in blocks[idx + 1 :]:
-                if lang2 == "yaml":
-                    expected_yaml = code2
+                if lang2 == "python":
                     break
+                if lang2 == "yaml":
+                    expected_yaml.append(code2)
         # Name the case after the first def in the block for readable pytest ids.
         name = f"block{idx}"
         for line in code.splitlines():
@@ -124,18 +128,25 @@ def test_readme_example(code, expected_yaml, tmp_path):
     g = _seed_globals()
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always")
-        exec(compile(code, str(README), "exec"), g)
+        # Run from a real file so assignment-based id inference can read the source.
+        source = tmp_path / "readme_example.py"
+        source.write_text(code)
+        g = runpy.run_path(str(source), init_globals=g)
 
-        workflows = [v for v in g.values() if isinstance(v, WorkflowInfo)]
-        assert workflows, "example did not define a @workflow"
+        outputs = []
+        for v in g.values():
+            if isinstance(v, WorkflowInfo):
+                outputs.append(generate_workflow(v, tmp_path))
+            elif isinstance(v, ActionInfo):
+                outputs.append(generate_action(v, tmp_path / v.path / "action.yml"))
+        assert outputs, "example did not define a @workflow or @action"
 
-        for wf in workflows:
-            output = generate_workflow(wf, tmp_path)
-            actual = output.read_text().splitlines()
-            if expected_yaml is not None:
-                assert _strip_generated_comment(actual) == _strip_generated_comment(
-                    expected_yaml.splitlines()
-                )
+        if expected_yaml is not None:
+            assert len(outputs) == len(expected_yaml)
+            for output, expected in zip(outputs, expected_yaml):
+                assert _strip_generated_comment(
+                    output.read_text().splitlines()
+                ) == _strip_generated_comment(expected.splitlines())
 
     # Examples must use t-strings, not the deprecated f-string interpolation.
     deprecated = [
