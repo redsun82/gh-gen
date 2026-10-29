@@ -522,7 +522,7 @@ class ActionInput(Element):
     _: dataclasses.KW_ONLY
     id: str
     required: bool
-    default: str | bool | int | float
+    default: Value
     deprecation_message: str
 
     def asdict(self) -> typing.Any:

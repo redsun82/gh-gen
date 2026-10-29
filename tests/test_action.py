@@ -19,7 +19,7 @@ def _tools_body():
     """).outputs("path")
     run("echo cached").if_(cache.outputs.cache_hit == "true").shell("pwsh")
     output("installed path", value=install.outputs.path)
-    output("cache hit", id="hit", value=cache.outputs.cache_hit)
+    output("cache hit", value=cache.outputs.cache_hit)
 
 
 @expect_action("""\
@@ -97,7 +97,7 @@ _tools = action(_tools_body, id="tools")
       path:
         description: installed path
         value: ${{ steps.install.outputs.path }}
-      hit:
+      cache-hit:
         description: cache hit
         value: ${{ steps.cache.outputs.cache-hit }}
     runs:
@@ -159,7 +159,7 @@ def _root():
           uses: $/.github/actions/tools
           with:
             token: x
-        - run: echo ${{ steps.t.outputs.path }} ${{ steps.t.outputs.hit }}
+        - run: echo ${{ steps.t.outputs.path }} ${{ steps.t.outputs.cache-hit }}
         - name: Root
           uses: $/
     """)
@@ -167,7 +167,7 @@ def test_call_actions():
     on.workflow_dispatch()
     _wrapper()
     t = _tools(token="x")
-    run(t"echo {t.outputs.path} {t.outputs.hit}")
+    run(t"echo {t.outputs.path} {t.outputs.cache_hit}")
     _root()
 
 
@@ -255,6 +255,107 @@ def test_action_needs_outputs_set(error):
     with error:
         error("action `a` has no value set for unset")
         _ = a.action
+
+
+def test_action_output_without_value(error):
+    @action
+    def a():
+        name("n")
+        description("d")
+        result = output("Result")
+        run("x")
+
+    error.id = "a"
+    with error:
+        error("action `a` has no value set for result")
+        _ = a.action
+
+
+@expect_action("""\
+    # generated from test_action.py::test_unused_required_input
+    name: Required input
+    description: An unused required input
+    inputs:
+      token:
+        required: true
+    runs:
+      using: composite
+      steps:
+      - run: 'true'
+        shell: bash
+    """)
+def test_unused_required_input():
+    _required_input_body()
+
+
+def _required_input_body():
+    name("Required input")
+    description("An unused required input")
+    token = input(required=True)
+    run("true")
+
+
+required_action = action(_required_input_body, id="required")
+
+
+def test_unused_required_input_invocation(error):
+    error.id = "test_unused_required_input_invocation"
+
+    def body():
+        on.workflow_dispatch()
+        error("action `required` requires inputs token")
+        required_action()
+
+    with error:
+        _ = workflow(body, id=error.id).worfklow
+
+
+@expect_action("""\
+    # generated from test_action.py::test_expression_default
+    name: Token
+    description: Expression default
+    inputs:
+      token:
+        default: ${{ github.token }}
+    runs:
+      using: composite
+      steps:
+      - run: 'true'
+        shell: bash
+    """)
+def test_expression_default():
+    name("Token")
+    description("Expression default")
+    token = input(default=github.token)
+    run("true")
+
+
+@expect("""\
+    # generated from test_action.py::test_underscore_input_id
+    on:
+      workflow_dispatch: {}
+    defaults:
+      run:
+        shell: bash
+    jobs:
+      test_underscore_input_id:
+        runs-on: ubuntu-latest
+        steps:
+        - name: Underscore input
+          uses: $/.github/actions/underscore_input
+          with:
+            my_input: value
+    """)
+def test_underscore_input_id():
+    @action
+    def underscore_input():
+        name("Underscore input")
+        description("Uses an underscore input ID")
+        my_input = input(id="my_input", required=True)
+        run(t"echo {my_input}")
+
+    on.workflow_dispatch()
+    underscore_input(my_input="value")
 
 
 @expect("""\

@@ -288,11 +288,22 @@ class _Context(ContextBase):
         self.check(a.name, f"action `{id}` must have a `name`")
         self.check(a.description, f"action `{id}` must have a `description`")
         self.check(a.runs.steps, f"action `{id}` must have at least one step")
-        unset_outputs = [o.id for o in a.outputs or () if o.value is None]
+        unset_outputs = [
+            o.id or getattr(o, "_suggested_id", None) or "unnamed output"
+            for o in a.outputs or ()
+            if o.value is None
+        ]
         self.check(
             not unset_outputs,
             f"action `{id}` has no value set for {', '.join(unset_outputs)}",
         )
+        for i in a.inputs or ():
+            if i.id is None:
+                i.id = _allocate_id(
+                    getattr(i, "_suggested_id", None) or "input",
+                    lambda id: all(other.id != id for other in a.inputs),
+                    start_from_one=getattr(i, "_suggested_id", None) is None,
+                )
 
     @contextlib.contextmanager
     def build_action(self, id: str) -> typing.Generator[Action, None, None]:
@@ -922,10 +933,11 @@ class _OnUpdater(_Updater):
                 if value is not None:
                     el = ret._element
                     # `output(value=steps.foo.outputs.bar)` defaults its id to `bar`
-                    if getattr(el, "_suggested_id", None) is None and isinstance(
-                        value, RefExpr
-                    ):
-                        el._suggested_id = value._segments[-1]
+                    if getattr(el, "_suggested_id", None) is None:
+                        if isinstance(value, RefExpr):
+                            el._suggested_id = value._segments[-1]
+                        elif isinstance(value, DotExpr):
+                            el._suggested_id = value._attr
                     ret.ensure_id()
                     # workflow-call outputs reference producing jobs via `jobs.<id>`,
                     # but inside a job those refs are written as `needs.<id>`; rewrite them.
@@ -1394,17 +1406,21 @@ class ActionInfo:
         with _ctx.suspended():
             a = self.action
         declared = [i.id for i in a.inputs or ()]
-        given = {Element._key(k) for k, v in inputs.items() if v is not None}
-        if unknown := sorted(given.difference(declared)):
+        resolved = {
+            (k if k in declared else Element._key(k)): v
+            for k, v in inputs.items()
+            if v is not None
+        }
+        if unknown := sorted(set(resolved).difference(declared)):
             _ctx.error(f"action `{self.id}` has no inputs {', '.join(unknown)}")
         if missing := [
             i.id
             for i in a.inputs or ()
-            if i.required and i.default is None and i.id not in given
+            if i.required and i.default is None and i.id not in resolved
         ]:
             _ctx.error(f"action `{self.id}` requires inputs {', '.join(missing)}")
         ref = "$/" if self.path == "." else f"$/{self.path}"
-        ret = step.uses(ref, **inputs).name(a.name)
+        ret = step.uses(ref).with_(resolved).name(a.name)
         if a.outputs:
             ret = ret.outputs(*(o.id for o in a.outputs))
         return ret

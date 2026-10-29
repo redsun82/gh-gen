@@ -654,11 +654,11 @@ def setup_tools():
     cache = uses(
         "actions/cache@v4", path="~/.tools", key=t"tools-{runner.os}"
     ).outputs("cache-hit")
-    install = run(t"""
-        "$GITHUB_ACTION_PATH/install.sh" {version}
-        echo "path=$HOME/.tools" >> "$GITHUB_OUTPUT"
-    """).if_(cache.outputs.cache_hit != "true").outputs("path")
-    output("Install location", value=install.outputs.path)
+    run(t'"$GITHUB_ACTION_PATH/install.sh" {version}').if_(
+        cache.outputs.cache_hit != "true"
+    )
+    path = run('echo "path=$HOME/.tools" >> "$GITHUB_OUTPUT"').outputs("path")
+    output("Install location", value=path.outputs.path)
 
 
 @workflow
@@ -682,7 +682,7 @@ inputs:
 outputs:
   path:
     description: Install location
-    value: ${{ steps.install.outputs.path }}
+    value: ${{ steps.path.outputs.path }}
 runs:
   using: composite
   steps:
@@ -696,11 +696,11 @@ runs:
     with:
       path: ~/.tools
       key: tools-${{ runner.os }}
-  - id: install
-    if: steps.cache.outputs.cache-hit != 'true'
-    run: |
-      "$GITHUB_ACTION_PATH/install.sh" ${{ inputs.version }}
-      echo "path=$HOME/.tools" >> "$GITHUB_OUTPUT"
+  - if: steps.cache.outputs.cache-hit != 'true'
+    run: '"$GITHUB_ACTION_PATH/install.sh" ${{ inputs.version }}'
+    shell: bash
+  - id: path
+    run: echo "path=$HOME/.tools" >> "$GITHUB_OUTPUT"
     shell: bash
 ```
 
