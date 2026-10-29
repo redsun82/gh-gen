@@ -161,7 +161,7 @@ def _root():
             token: x
         - run: echo ${{ steps.t.outputs.path }} ${{ steps.t.outputs.hit }}
         - name: Root
-          uses: $/.
+          uses: $/
     """)
 def test_call_actions():
     on.workflow_dispatch()

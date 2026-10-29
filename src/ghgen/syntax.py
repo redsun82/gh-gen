@@ -1247,7 +1247,7 @@ class _JobCallUpdater:
 
 
 _action_regex = re.compile(
-    r"^(?a:(\.|\$)|[\w-]+)/[^@]*?(?P<action_name>[^/@]+)(?(1)|@[\w./-]+)$"
+    r"^(?:\$/|(?a:(\.|\$)|[\w-]+)/[^@]*?(?P<action_name>[^/@]+)(?(1)|@[\w./-]+))$"
 )
 
 _reusable_workflow_regex = re.compile(
@@ -1396,7 +1396,8 @@ class ActionInfo:
             if i.required and i.default is None and i.id not in given
         ]:
             _ctx.error(f"action `{self.id}` requires inputs {', '.join(missing)}")
-        ret = step.uses(f"$/{self.path}", **inputs).name(a.name)
+        ref = "$/" if self.path == "." else f"$/{self.path}"
+        ret = step.uses(ref, **inputs).name(a.name)
         if a.outputs:
             ret = ret.outputs(*(o.id for o in a.outputs))
         return ret
@@ -1601,7 +1602,7 @@ class _StepUpdater(ProxyExpr, _IdElementUpdater[Step]):
                 _ctx.error(
                     f"invalid action source `{source}`, must be in the form `owner/repo[/path]@ref` or `./some/path`"
                 )
-            elif not ret._element.name:
+            elif not ret._element.name and m.group("action_name"):
                 ret.name(
                     inflection.humanize(inflection.titleize(m.group("action_name")))
                 )

@@ -634,9 +634,9 @@ to choose the directory (`path="."` writes the repository root `action.yml`). `r
 `shell: bash` unless one is set.
 
 Calling the decorated function from a workflow or another action adds a step using it via
-`$/<path>` (an [action in the same repository at the running commit][same-repo]). Keyword
-arguments become `with` inputs and are checked against the action's inputs; outputs are
-available on the returned step.
+`$/<path>` (`$/` for the root action), an [action in the same repository at the running
+commit][same-repo]. Keyword arguments become `with` inputs and are checked against the
+action's inputs; outputs are available on the returned step.
 
 [same-repo]: https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax#example-using-an-action-in-the-same-repository-as-the-workflow-at-the-running-commit-recommended
 
