@@ -313,7 +313,7 @@ class _Context(ContextBase):
         self.current_action = Action()
         self.current_action_id = id
         # steps are collected in a placeholder job, so step builders and rules work unchanged
-        self.reset_job(Job(), id)
+        self.reset_job(Job(steps=[]), id)
         with on_error(lambda message: self.error(message)):
             try:
                 yield self.current_action

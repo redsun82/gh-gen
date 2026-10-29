@@ -79,6 +79,22 @@ def test_action_errors(error):
     on.input("x")
 
 
+def test_action_output_before_steps():
+    @action
+    def early_output():
+        name("A")
+        description("A")
+        output(value=steps.build.outputs.result)
+        run("true")
+
+    with pytest.raises(GenerationError) as exc:
+        _ = early_output.action
+    assert any(
+        e.message == "step `build` not defined yet in job `early_output`"
+        for e in exc.value.errors
+    )
+
+
 _tools = action(_tools_body, id="tools")
 
 
@@ -488,3 +504,99 @@ def test_generate_called_actions(repo, root_kind):
     assert result.returncode == 1
     assert "leaf/action.yml" in result.stderr
     assert not leaf.exists()
+
+
+@pytest.mark.parametrize("check", [False, True])
+def test_conflicting_action_paths(repo, check):
+    repo.file(
+        ".github/workflows/conflicts.py",
+        """\
+        from ghgen.syntax import *
+
+        @workflow
+        def first():
+            on.workflow_dispatch()
+
+            @action(path=".github/actions/setup")
+            def setup():
+                name("First")
+                description("First setup")
+                run("echo first")
+
+            setup()
+
+        @workflow
+        def second():
+            on.workflow_dispatch()
+
+            @action(path=".github/actions/other/../setup")
+            def setup():
+                name("Second")
+                description("Second setup")
+                run("echo second")
+
+            setup()
+        """,
+    )
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "import sys; from ghgen import main; raise SystemExit(main(sys.argv[1:]))",
+            *(["--check"] if check else []),
+        ],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 1
+    assert (
+        "conflicting action definitions for .github/actions/setup/action.yml"
+        in result.stderr
+    )
+    output_file = repo.path / ".github/actions/setup/action.yml"
+    if check:
+        assert not output_file.exists()
+    else:
+        assert "echo first" in output_file.read_text()
+        assert "echo second" not in output_file.read_text()
+
+
+def test_reimported_action_definition(repo):
+    repo.file(
+        ".github/workflows/shared.py",
+        """\
+        from ghgen.syntax import *
+
+        @action
+        def setup():
+            name("Setup")
+            description("Shared setup")
+            run("true")
+        """,
+    )
+    repo.file(
+        ".github/workflows/entry.py",
+        """\
+        from ghgen.syntax import *
+        from shared import setup
+
+        @workflow
+        def entry():
+            on.workflow_dispatch()
+            setup()
+            setup()
+        """,
+    )
+    for args in ([], ["--check"]):
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                "import sys; from ghgen import main; raise SystemExit(main(sys.argv[1:]))",
+                *args,
+            ],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0, result.stderr
+    assert (repo.path / ".github/actions/setup/action.yml").exists()

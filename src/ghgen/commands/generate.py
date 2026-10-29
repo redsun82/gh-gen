@@ -73,6 +73,7 @@ def generate_all(opts: argparse.Namespace) -> int:
     failed = False
     found = False
     seen: dict[int, WorkflowInfo | ActionInfo] = {}
+    action_sources: dict[pathlib.Path, tuple[pathlib.Path, int]] = {}
     for i in inputs:
         logging.debug(f"@ {i}")
         for f in i.glob("*.py"):
@@ -91,6 +92,17 @@ def generate_all(opts: argparse.Namespace) -> int:
                     continue
                 seen[id(v)] = v
                 found = True
+                if isinstance(v, ActionInfo):
+                    output = (project_dir() / v.path / "action.yml").resolve()
+                    source = (v.file.resolve(), v.spec.__code__.co_firstlineno)
+                    previous = action_sources.setdefault(output, source)
+                    if previous != source:
+                        failed = True
+                        logging.error(
+                            f"conflicting action definitions for {relativized_path(output)}: "
+                            f"{previous[0]}:{previous[1]} and {source[0]}:{source[1]}"
+                        )
+                        continue
                 try:
                     output = _generate(v, opts)
                     logging.info(f"{'✅' if opts.check else '→'} {output}")
