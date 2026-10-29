@@ -626,7 +626,7 @@ Decorate a function with `@action` to generate a composite action. Its body uses
 step builders as a job, plus:
 
 - `description(...)` (required), `author(...)`, `branding(icon=..., color=...)`;
-- `on.input(...)` for `inputs` (also accepts `deprecation_message=`);
+- `input(...)` for `inputs` (also accepts `deprecation_message=`);
 - `output(...)` for `outputs`, taking its id from the value's last segment unless `id=` is given.
 
 The action is written to `.github/actions/<id>/action.yml`; pass `@action(path="some/dir")`
@@ -648,7 +648,7 @@ With this in `.github/workflows/ci.py`:
 def setup_tools():
     name("Setup tools")
     description("Install the toolchain")
-    version = on.input("Tool version", default="1.0")
+    version = input("Tool version", default="1.0")
     uses("actions/setup-node@v4", node_version=20)
     cache = uses(
         "actions/cache@v4", path="~/.tools", key=t"tools-{runner.os}"
@@ -761,7 +761,7 @@ supported on GitHub Enterprise Server.
 | `.outputs(...)` | `steps[].id` + job `outputs` wiring | step |
 | `@action` | `<path>/action.yml` | file |
 | `description(...)`, `author(...)`, `branding(...)` | same keys | action |
-| `on.input(...)` | `inputs.<id>` | action |
+| `input(...)` | `inputs.<id>` | action |
 | `output(...)` | `outputs.<id>` | action |
 | `<action>(...)` | `steps[].uses: $/<path>` | step |
 

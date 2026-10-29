@@ -1,4 +1,4 @@
-from conftest import expect, expect_action, expect_action_errors
+from conftest import expect, expect_action, expect_action_errors, expect_errors
 from ghgen.syntax import *
 
 
@@ -7,8 +7,8 @@ def _tools_body():
     description("Install our toolchain")
     author("me")
     branding(icon="tool", color="blue")
-    version = on.input("tool version", default="1.0")
-    token = on.input("auth token", required=True, deprecation_message="use OIDC")
+    version = input("tool version", default="1.0")
+    token = input("auth token", required=True, deprecation_message="use OIDC")
     uses("actions/setup-node@v4", node_version=20)
     cache = uses("actions/cache@v4", path="~/.cache", key=t"tools-{runner.os}").outputs(
         "cache-hit"
@@ -70,6 +70,8 @@ def test_action_errors(error):
     run_name("foo")
     error("composite action steps do not support `timeout-minutes`")
     run("sleep 100").timeout_minutes(1)
+    error("`on` cannot be used in an action, use `input` instead")
+    on.input("x")
 
 
 _tools = action(_tools_body, id="tools")
@@ -253,3 +255,13 @@ def test_action_needs_outputs_set(error):
     with error:
         error("action `a` has no value set for unset")
         _ = a.action
+
+
+@expect_errors
+def test_action_builders_in_workflow(error):
+    on.workflow_dispatch()
+    error("`input` must be used in an action")
+    input("x")
+    error("`output` must be used in an action")
+    output("y", value=1)
+    run("true")

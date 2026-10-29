@@ -939,7 +939,8 @@ class _OnUpdater(_Updater):
     @property
     def input(self) -> _Input:
         if _ctx.current_action is not None:
-            return self._ActionInput(_get_action, ("inputs", "*"))
+            _ctx.error("`on` cannot be used in an action, use `input` instead")
+            return input
         _check_workflow_dispatch_max_inputs()
         return self._sub_updater(self._Input, "inputs", "*")
 
@@ -1008,6 +1009,7 @@ class _ActionOutputUpdater(_IdElementUpdater[Output]):
         return ret
 
 
+input = _OnUpdater._ActionInput(_get_action, ("inputs", "*"))
 output = _ActionOutputUpdater(_get_action, ("outputs", "*"))
 
 
