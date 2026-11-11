@@ -553,6 +553,8 @@ def test_runs_on_in_worfklow_with_name():
             ref: dev
         - name: Action
           uses: some/action@a/branch
+        - name: Action
+          uses: some/action@v1.2.3+build.1
         - name: My action
           uses: ./my_action
           with:
@@ -580,6 +582,7 @@ def test_steps():
         step("catastrophe").run("echo oh no").if_("failure()")
         uses("actions/checkout@v4").with_(ref="dev")
         uses("some/action@a/branch")
+        uses("some/action@v1.2.3+build.1")
         uses("./my_action").with_(arg_1="foo", arg__2="bar", UPPERCASE_ARG=42).with_(
             (("arg_3", "baz"),)
         )
@@ -1409,6 +1412,8 @@ def test_strategy_as_context():
         uses: foo/bar/.github/workflows/workflow.yml@feature/branch
         with:
           input1: value1
+      j6:
+        uses: foo/bar/.github/workflows/baz.yml@v1.2.3+build.1
     """)
 def test_call():
     on.workflow_dispatch()
@@ -1440,6 +1445,10 @@ def test_call():
         uses("foo/bar/.github/workflows/workflow.yml@feature/branch").with_(
             input1="value1"
         )
+
+    @job
+    def j6():
+        uses("foo/bar/.github/workflows/baz.yml@v1.2.3+build.1")
 
 
 @expect("""\
