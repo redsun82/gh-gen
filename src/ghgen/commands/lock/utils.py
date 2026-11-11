@@ -9,6 +9,7 @@ import inflection
 import pystache
 import pathlib
 import keyword
+import urllib.parse
 
 from ...element import ConfigElement
 from ..utils import yaml, project_dir, load, dumps, write_or_diff, DiffError
@@ -346,10 +347,9 @@ class RemoteAction(Action):
                     pass
             else:
                 self.sha = self.resolved_ref
+        ref = urllib.parse.quote(self.sha or self.resolved_ref)
         address = str(
-            pathlib.PurePosixPath(
-                "contents", self.path, f"action.yml?ref={self.sha or self.resolved_ref}"
-            )
+            pathlib.PurePosixPath("contents", self.path, f"action.yml?ref={ref}")
         )
         with self._gh_api("application/vnd.github.v3.raw", address) as out:
             self._load(out)

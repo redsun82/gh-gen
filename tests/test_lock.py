@@ -1030,6 +1030,17 @@ def test_actions_lock(repo, mock_gh_api_call):
     assert ".comment(" not in actions
 
 
+def test_actions_lock_build_metadata_ref(repo, mock_gh_api_call):
+    repo.file(".github/workflows/actions.lock", "version: 1\n")
+    repo.config("uses:\n  foo: owner/foo@v1.2.3+build.1\n")
+    mock_gh_api_call.narrowing("owner/foo", "v1.2.3+build.1", "sha", {})
+    # `+` would be decoded as a space in the query
+    mock_gh_api_call("owner/foo", "v1.2.3%2Bbuild.1", None, "{}")
+    main(["sync", "-v"])
+    actions = pathlib.Path(".github", "workflows", "actions.py").read_text()
+    assert '"owner/foo@v1.2.3+build.1"' in actions
+
+
 def test_actions_lock_mode_switch(repo, mock_gh_api_call):
     uses = """\
         uses:
