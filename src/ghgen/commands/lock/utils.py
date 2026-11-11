@@ -177,7 +177,7 @@ class Action(ConfigElement):
                     f"Invalid action specification: {action} (expected 'owner/repo[@version]')"
                 )
 
-    def fetch(self, default_ref: str | None = None): ...
+    def fetch(self, default_ref: str | None = None, locked_sha: str | None = None): ...
 
     def _load(self, f: typing.IO[str]):
         action_data = yaml.load(f)
@@ -198,6 +198,8 @@ class Action(ConfigElement):
 
 
 class LockData(ConfigElement):
+    # Accepted only to migrate older lockfiles.
+    actions_lock: bool
     actions: list[Action] = dataclasses.field(default_factory=list)
 
 
@@ -210,7 +212,7 @@ class LocalAction(Action):
     def spec(self) -> str:
         return f"{'$' if self.same_repo else '.'}/{self.path}"
 
-    def fetch(self, default_ref: str | None = None):
+    def fetch(self, default_ref: str | None = None, locked_sha: str | None = None):
         """Fetch inputs from the local action directory."""
         source = project_dir().joinpath(self.path, "action.yml")
         if not source.exists():
@@ -285,14 +287,20 @@ class RemoteAction(Action):
         ) as out:
             return out.read().strip()
 
-    def _narrow(self, ref: str) -> str:
+    def _narrow(self, ref: str, locked_sha: str | None = None) -> str:
         """Narrow a partial version ref (`v4`, `v4.2`) to the highest full version tag in
         its family on the same commit, as `gh actions-lock` would (see `BestPatchTagForSHA`
-        in github/gh-actions-lock). Any other ref is returned as is."""
+        in github/gh-actions-lock). Full versions are returned as is.
+
+        With `locked_sha`, that commit is used rather than where `ref` points now, and it
+        is what anything that cannot be narrowed becomes, so as not to upgrade."""
         version = _Version.parse(ref)
-        if version is None or version.is_full:
+        if version and version.is_full:
             return ref
-        sha = self._gh_api_jq(f"commits/{ref}", ".sha").lower()
+        fallback = locked_sha or ref
+        if version is None:
+            return fallback
+        sha = (locked_sha or self._gh_api_jq(f"commits/{ref}", ".sha")).lower()
         tags = self._gh_api_jq(
             "tags", r'.[] | "\(.commit.sha) \(.name)"', "--paginate"
         ).splitlines()
@@ -304,22 +312,24 @@ class RemoteAction(Action):
             and v.narrows(version)
         ]
         if not candidates:
-            return ref
+            return fallback
         best = max(
             candidates,
             key=lambda v: (v.major, v.minor, v.patch, v.prefix == "v", v.raw),
         )
         return best.raw
 
-    def fetch(self, default_ref: str | None = None):
+    def fetch(self, default_ref: str | None = None, locked_sha: str | None = None):
         """Fetch inputs from the remote action repository.
 
-        Without a requested ref, `default_ref` or else the latest release is used."""
+        Without a requested ref, `default_ref` or else the latest release is used.
+        `locked_sha` is the commit that was previously locked, which `actions-lock`
+        narrowing sticks to."""
         self.resolved_ref = (
             self.ref or default_ref or self._gh_api_jq("releases/latest", ".tag_name")
         )
         if self.pinned == ACTIONS_LOCK_PIN:
-            self.resolved_ref = self._narrow(self.resolved_ref)
+            self.resolved_ref = self._narrow(self.resolved_ref, locked_sha)
         elif not self.ref and self.trusted and not self.pinned:
             # take just the major version
             self.resolved_ref = self.resolved_ref.partition(".")[0]
@@ -360,6 +370,12 @@ def sync_lock_data(
     uses = args.config.uses or {}
     lock_file = project_dir() / "gh-gen.lock"
     lock_data = load(LockData, lock_file)
+    if lock_data.actions_lock:
+        for action in lock_data.actions:
+            if isinstance(action, RemoteAction):
+                action.pinned = ACTIONS_LOCK_PIN
+                action.trusted = None
+    lock_data.actions_lock = None
     actions_lock = actions_lock_enabled(args.config)
     actions = {a.id: a for a in lock_data.actions}
     for id in list(actions):
@@ -424,12 +440,13 @@ def sync_lock_data(
         )
         if mode_changed:
             prev_desc = prev_desc._replace(pin=new.pin)
-        default_ref = None
+        default_ref = locked_sha = None
         if not to_update(prev_desc, new):
             if not mode_changed:
                 continue
             # re-resolve without upgrading
             default_ref = getattr(prev, "resolved_ref", None)
+            locked_sha = getattr(prev, "sha", None)
         if new is None:
             del actions[id]
             continue
@@ -440,7 +457,7 @@ def sync_lock_data(
             trusted=None if actions_lock else new.trust,
         )
         # TODO: async
-        actions[id].fetch(default_ref)
+        actions[id].fetch(default_ref, locked_sha)
 
         message = [f"{id}: "]
         if prev is None:

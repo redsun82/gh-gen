@@ -8,6 +8,7 @@ from unittest import mock
 import pytest
 
 from src.ghgen import main
+from src.ghgen.commands.utils import yaml
 from conftest import Call
 
 
@@ -329,6 +330,13 @@ class MockedGhApi:
             "--jq",
             ".sha",
         ] = (this_call, f"{sha}\n")
+        self._tags(this_call, target, tags)
+
+    def tags(self, target: str, tags: dict[str, str]):
+        """Mock narrowing on an already locked commit, with `tags` mapping names to shas."""
+        self._tags(Call.get(), target, tags)
+
+    def _tags(self, this_call: Call, target: str, tags: dict[str, str]):
         self.calls[
             "gh",
             "api",
@@ -1164,6 +1172,100 @@ def test_actions_lock_mode_switch(repo, mock_gh_api_call):
         -  trusted: true
         +  resolved-ref: v4.2.2
         """)
+
+
+def test_actions_lock_mode_switch_keeps_locked_commit(repo, mock_gh_api_call):
+    repo.config("""\
+        uses:
+            foo: owner/foo@v1
+            bar: owner/bar@v2
+            baz: owner/baz@main
+        """)
+    mock_gh_api_call("owner/foo", "v1", "foo_sha", "{}")
+    mock_gh_api_call("owner/bar", "v2", "bar_sha", "{}")
+    mock_gh_api_call("owner/baz", "main", "baz_sha", "{}", as_branch=True)
+    main(["sync", "-v"])
+
+    # all refs moved on since, pinning must stick to the locked commits
+    repo.file(".github/workflows/actions.lock", "version: 1\n")
+    mock_gh_api_call.tags(
+        "owner/foo", {"v1": "new", "v1.0.0": "foo_sha", "v1.1.0": "new"}
+    )
+    mock_gh_api_call("owner/foo", "v1.0.0", None, "{}")
+    # no full tag on the locked commit
+    mock_gh_api_call.tags("owner/bar", {"v2": "new", "v2.0.0": "new"})
+    mock_gh_api_call("owner/bar", "bar_sha", None, "{}")
+    # not a version
+    mock_gh_api_call("owner/baz", "baz_sha", None, "{}")
+    main(["sync", "-v"])
+    actions = pathlib.Path(".github", "workflows", "actions.py").read_text()
+    for spec in ("owner/foo@v1.0.0", "owner/bar@bar_sha", "owner/baz@baz_sha"):
+        assert f'"{spec}"' in actions
+    assert main(["sync", "--check"]) is None
+
+
+@pytest.mark.parametrize("actions_lock", [True, False])
+def test_actions_lock_migrates_legacy_lock(repo, mock_gh_api_call, actions_lock):
+    repo.file(".github/workflows/actions.lock", "version: 1\n")
+    config = repo.config(
+        ("" if actions_lock else "actions-lock: false\n") + textwrap.dedent("""\
+            uses:
+                bar: owner/bar
+                checkout: actions/checkout@v4
+            """)
+    )
+    lock = repo.lock("""\
+        actions-lock: true
+        actions:
+        - pinned: false
+          id: bar
+          name: Bar
+          inputs: []
+          outputs: []
+          owner: owner
+          repo: bar
+          path: ''
+          resolved-ref: v3.1.0
+          trusted: false
+        - pinned: false
+          id: checkout
+          name: Checkout
+          inputs: []
+          outputs: []
+          owner: actions
+          repo: checkout
+          path: ''
+          ref: v4
+          resolved-ref: v4.2.2
+          trusted: true
+        """)
+    generated = pathlib.Path(".github/workflows/actions.py")
+    for check in (True, False):
+        if not actions_lock:
+            mock_gh_api_call("owner/bar", "v3.1.0", "bar_sha", "{}")
+            mock_gh_api_call("actions/checkout", "v4", None, "{}")
+        result = main(["sync", "--check"] if check else ["sync"])
+        assert result == (1 if check else None)
+        if check:
+            lock.expect_unchanged()
+            assert not generated.exists()
+
+    expected = yaml.load(lock.contents)
+    del expected["actions-lock"]
+    if actions_lock:
+        for action in expected["actions"]:
+            action["pinned"] = "actions-lock"
+            del action["trusted"]
+    else:
+        bar, checkout = expected["actions"]
+        bar.update(pinned=True, sha="bar_sha")
+        checkout["resolved-ref"] = "v4"
+    assert yaml.load(lock.path) == expected
+    config.expect_unchanged()
+    helpers = generated.read_text()
+    assert f'"owner/bar@{"v3.1.0" if actions_lock else "bar_sha"}"' in helpers
+    assert f'"actions/checkout@{"v4.2.2" if actions_lock else "v4"}"' in helpers
+    assert main(["sync", "--check"]) is None
 
 
 def test_actions_lock_rejects_pin(repo, caplog):

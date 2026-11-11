@@ -225,7 +225,13 @@ Actions are pinned to a commit by default; those whose owner is listed in `trust
 
 - actions are referenced by their most precise version tag (`actions/checkout@v7` becomes
   `actions/checkout@v7.0.1`), which `gh actions-lock` leaves as is;
-- `gh-gen.lock` records no commits, and `--pin` is an error.
+- `gh-gen.lock` records `pinned: actions-lock` without SHA or trust fields, and `--pin` is
+  an error.
+
+The resolved version ref and action metadata stay in `gh-gen.lock` so workflows can be
+generated before `actions.lock` exists. Enabling the mode keeps the commits already pinned,
+referenced by SHA when no full version tag points at them. Older lockfiles migrate
+automatically on the next `gh gen sync`.
 
 Set `actions-lock: true` or `false` in `gh-gen.yml` to override the detection. Run
 `gh actions-lock` after `gh gen`, and check both in CI:
