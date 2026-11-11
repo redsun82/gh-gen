@@ -15,6 +15,9 @@ from ..utils import yaml, project_dir, load, dumps, write_or_diff, DiffError
 from ..config import Config, UsesClause
 
 ACTIONS_LOCK = pathlib.PurePosixPath(".github", "workflows", "actions.lock")
+# `pinned` value of actions whose pinning is left to `gh actions-lock`
+ACTIONS_LOCK_PIN = "actions-lock"
+Pin = typing.Literal["actions-lock"] | bool
 
 
 def actions_lock_enabled(config: Config) -> bool:
@@ -174,7 +177,7 @@ class Action(ConfigElement):
                     f"Invalid action specification: {action} (expected 'owner/repo[@version]')"
                 )
 
-    def fetch(self, actions_lock: bool = False, default_ref: str | None = None): ...
+    def fetch(self, default_ref: str | None = None): ...
 
     def _load(self, f: typing.IO[str]):
         action_data = yaml.load(f)
@@ -195,7 +198,6 @@ class Action(ConfigElement):
 
 
 class LockData(ConfigElement):
-    actions_lock: bool
     actions: list[Action] = dataclasses.field(default_factory=list)
 
 
@@ -208,7 +210,7 @@ class LocalAction(Action):
     def spec(self) -> str:
         return f"{'$' if self.same_repo else '.'}/{self.path}"
 
-    def fetch(self, actions_lock: bool = False, default_ref: str | None = None):
+    def fetch(self, default_ref: str | None = None):
         """Fetch inputs from the local action directory."""
         source = project_dir().joinpath(self.path, "action.yml")
         if not source.exists():
@@ -225,8 +227,9 @@ class RemoteAction(Action):
     ref: str
     resolved_ref: str
     sha: str
-    pinned: bool = True
-    trusted: bool = False
+    pinned: Pin = True
+    # only set without `gh actions-lock`, where it affects resolution
+    trusted: bool
 
     @property
     def spec(self) -> str:
@@ -234,9 +237,7 @@ class RemoteAction(Action):
 
     @property
     def resolved_spec(self) -> str:
-        return (
-            f"{self.unversioned_spec}@{self.sha if self.pinned else self.resolved_ref}"
-        )
+        return f"{self.unversioned_spec}@{self.sha or self.resolved_ref}"
 
     @property
     def unversioned_spec(self) -> str:
@@ -244,14 +245,14 @@ class RemoteAction(Action):
 
     @property
     def display_spec(self) -> str:
-        if self.pinned and self.resolved_ref != self.sha:
+        if self.sha and self.resolved_ref != self.sha:
             return f"{self.resolved_spec} ({self.resolved_ref})"
         else:
             return self.resolved_spec
 
     @property
     def comment(self):
-        if self.pinned and self.sha != self.resolved_ref:
+        if self.sha and self.sha != self.resolved_ref:
             return self.resolved_ref
         else:
             return None
@@ -310,19 +311,19 @@ class RemoteAction(Action):
         )
         return best.raw
 
-    def fetch(self, actions_lock: bool = False, default_ref: str | None = None):
+    def fetch(self, default_ref: str | None = None):
         """Fetch inputs from the remote action repository.
 
         Without a requested ref, `default_ref` or else the latest release is used."""
         self.resolved_ref = (
             self.ref or default_ref or self._gh_api_jq("releases/latest", ".tag_name")
         )
-        if actions_lock:
+        if self.pinned == ACTIONS_LOCK_PIN:
             self.resolved_ref = self._narrow(self.resolved_ref)
         elif not self.ref and self.trusted and not self.pinned:
             # take just the major version
             self.resolved_ref = self.resolved_ref.partition(".")[0]
-        if self.pinned:
+        if self.pinned is True:
             for kind in ("tags", "heads"):
                 try:
                     self.sha = self._gh_api_jq(
@@ -347,7 +348,7 @@ class RemoteAction(Action):
 class ActionDescription(typing.NamedTuple):
     id: str
     spec: str
-    pin: bool
+    pin: Pin
     trust: bool
     name: str | None
 
@@ -360,8 +361,6 @@ def sync_lock_data(
     lock_file = project_dir() / "gh-gen.lock"
     lock_data = load(LockData, lock_file)
     actions_lock = actions_lock_enabled(args.config)
-    mode_changed = bool(lock_data.actions_lock) != actions_lock
-    lock_data.actions_lock = actions_lock or None
     actions = {a.id: a for a in lock_data.actions}
     for id in list(actions):
         uses.setdefault(id, None)
@@ -388,7 +387,7 @@ def sync_lock_data(
                 raise ValueError(
                     f"{id}: cannot pin with actions-lock enabled, `gh actions-lock` does the pinning"
                 )
-            pin = False
+            pin = ACTIONS_LOCK_PIN
         return ActionDescription(
             id,
             spec,
@@ -418,12 +417,16 @@ def sync_lock_data(
             prev.spec.partition("/")[0] in args.config.trusted_owners,
             prev.requested_name,
         )
-        if mode_changed and prev_desc and new:
-            # pinning follows the mode, it was not requested
+        # pinning follows the mode, it was not requested
+        mode_changed = (
+            bool(prev_desc and new)
+            and (prev_desc.pin == ACTIONS_LOCK_PIN) != actions_lock
+        )
+        if mode_changed:
             prev_desc = prev_desc._replace(pin=new.pin)
         default_ref = None
         if not to_update(prev_desc, new):
-            if not mode_changed or new is None:
+            if not mode_changed:
                 continue
             # re-resolve without upgrading
             default_ref = getattr(prev, "resolved_ref", None)
@@ -434,10 +437,10 @@ def sync_lock_data(
             f"{new.id}={new.spec}",
             requested_name=new.name,
             pinned=new.pin,
-            trusted=new.trust,
+            trusted=None if actions_lock else new.trust,
         )
         # TODO: async
-        actions[id].fetch(actions_lock, default_ref)
+        actions[id].fetch(default_ref)
 
         message = [f"{id}: "]
         if prev is None:

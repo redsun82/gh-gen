@@ -969,10 +969,9 @@ def test_actions_lock(repo, mock_gh_api_call):
     main(["sync", "-v"])
     config.expect_unchanged()
     lock.expect_diff("""\
-        @@ -0,0 +1,45 @@
-        +actions-lock: true
+        @@ -0,0 +1,40 @@
         +actions:
-        +- pinned: false
+        +- pinned: actions-lock
         +  id: bar
         +  name: Bar
         +  inputs: []
@@ -981,8 +980,7 @@ def test_actions_lock(repo, mock_gh_api_call):
         +  repo: bar
         +  path: ''
         +  resolved-ref: v3.0.0
-        +  trusted: false
-        +- pinned: false
+        +- pinned: actions-lock
         +  id: baz
         +  name: Baz
         +  inputs: []
@@ -992,8 +990,7 @@ def test_actions_lock(repo, mock_gh_api_call):
         +  path: ''
         +  ref: main
         +  resolved-ref: main
-        +  trusted: false
-        +- pinned: false
+        +- pinned: actions-lock
         +  id: checkout
         +  name: Checkout
         +  inputs: []
@@ -1003,8 +1000,7 @@ def test_actions_lock(repo, mock_gh_api_call):
         +  path: ''
         +  ref: v4
         +  resolved-ref: v4.2.2
-        +  trusted: true
-        +- pinned: false
+        +- pinned: actions-lock
         +  id: foo
         +  name: Foo
         +  inputs: []
@@ -1014,7 +1010,6 @@ def test_actions_lock(repo, mock_gh_api_call):
         +  path: ''
         +  ref: v2.1
         +  resolved-ref: v2.1
-        +  trusted: false
         """)
     actions = pathlib.Path(".github", "workflows", "actions.py").read_text()
     for spec in (
@@ -1074,29 +1069,31 @@ def test_actions_lock_mode_switch(repo, mock_gh_api_call):
     mock_gh_api_call("owner/bar", "v3.1.0", None, "{}")
     main(["sync", "-v"])
     lock.expect_diff("""\
-        @@ -1,5 +1,6 @@
-        +actions-lock: true
+        @@ -1,5 +1,5 @@
          actions:
         -- pinned: true
-        +- pinned: false
+        +- pinned: actions-lock
            id: bar
            name: Bar
            inputs: []
-        @@ -8,7 +9,6 @@
+        @@ -8,9 +8,7 @@
            repo: bar
            path: ''
            resolved-ref: v3.1.0
         -  sha: bar_sha
-           trusted: false
-         - pinned: false
+        -  trusted: false
+        -- pinned: false
+        +- pinned: actions-lock
            id: checkout
-        @@ -19,5 +19,5 @@
+           name: Checkout
+           inputs: []
+        @@ -19,5 +17,4 @@
            repo: checkout
            path: ''
            ref: v4
         -  resolved-ref: v4
+        -  trusted: true
         +  resolved-ref: v4.2.2
-           trusted: true
         """)
 
     # configuration overrides detection
@@ -1105,29 +1102,31 @@ def test_actions_lock_mode_switch(repo, mock_gh_api_call):
     mock_gh_api_call("owner/bar", "v3.1.0", "bar_sha", "{}")
     main(["sync", "-v"])
     lock.expect_diff("""\
-        @@ -1,6 +1,5 @@
-        -actions-lock: true
+        @@ -1,5 +1,5 @@
          actions:
-        -- pinned: false
+        -- pinned: actions-lock
         +- pinned: true
            id: bar
            name: Bar
            inputs: []
-        @@ -9,6 +8,7 @@
+        @@ -8,7 +8,9 @@
            repo: bar
            path: ''
            resolved-ref: v3.1.0
+        -- pinned: actions-lock
         +  sha: bar_sha
-           trusted: false
-         - pinned: false
+        +  trusted: false
+        +- pinned: false
            id: checkout
-        @@ -19,5 +19,5 @@
+           name: Checkout
+           inputs: []
+        @@ -17,4 +19,5 @@
            repo: checkout
            path: ''
            ref: v4
         -  resolved-ref: v4.2.2
         +  resolved-ref: v4
-           trusted: true
+        +  trusted: true
         """)
 
     actions_lock.path.unlink()
@@ -1139,29 +1138,31 @@ def test_actions_lock_mode_switch(repo, mock_gh_api_call):
     mock_gh_api_call("owner/bar", "v3.1.0", None, "{}")
     main(["sync", "-v"])
     lock.expect_diff("""\
-        @@ -1,5 +1,6 @@
-        +actions-lock: true
+        @@ -1,5 +1,5 @@
          actions:
         -- pinned: true
-        +- pinned: false
+        +- pinned: actions-lock
            id: bar
            name: Bar
            inputs: []
-        @@ -8,7 +9,6 @@
+        @@ -8,9 +8,7 @@
            repo: bar
            path: ''
            resolved-ref: v3.1.0
         -  sha: bar_sha
-           trusted: false
-         - pinned: false
+        -  trusted: false
+        -- pinned: false
+        +- pinned: actions-lock
            id: checkout
-        @@ -19,5 +19,5 @@
+           name: Checkout
+           inputs: []
+        @@ -19,5 +17,4 @@
            repo: checkout
            path: ''
            ref: v4
         -  resolved-ref: v4
+        -  trusted: true
         +  resolved-ref: v4.2.2
-           trusted: true
         """)
 
 

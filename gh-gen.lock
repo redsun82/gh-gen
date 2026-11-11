@@ -1,6 +1,5 @@
-actions-lock: true
 actions:
-- pinned: false
+- pinned: actions-lock
   id: checkout
   name: Checkout
   inputs:
@@ -54,8 +53,7 @@ actions:
   repo: checkout
   path: ''
   resolved-ref: v7.0.1
-  trusted: true
-- pinned: false
+- pinned: actions-lock
   id: pre_commit
   requested-name: Check
   name: Check
@@ -68,8 +66,7 @@ actions:
   repo: action
   path: ''
   resolved-ref: v3.0.1
-  trusted: false
-- pinned: false
+- pinned: actions-lock
   id: setup_uv
   requested-name: Setup uv
   name: Setup uv
@@ -146,4 +143,3 @@ actions:
   repo: setup-uv
   path: ''
   resolved-ref: v10.0.1
-  trusted: false
