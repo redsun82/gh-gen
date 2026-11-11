@@ -29,7 +29,7 @@ def checkout(
     allow_unsafe_pr_checkout: str | None = None,
 ):
     return uses(
-        "actions/checkout@v7"
+        "actions/checkout@v7.0.1"
     ).with_((
         ("repository", repository),
         ("ref", ref),
@@ -65,13 +65,11 @@ def pre_commit(
     extra_args: str | None = None,
 ):
     return uses(
-        "pre-commit/action@2c7b3805fd2a0fd8c1884dcaebf91fc102a13ecd"
+        "pre-commit/action@v3.0.1"
     ).with_((
         ("extra_args", extra_args),
     )).name(
         "Check"
-    ).comment(
-        uses="v3.0.1"
     )
 
 
@@ -105,7 +103,7 @@ def setup_uv(
     resolution_strategy: str | None = None,
 ):
     return uses(
-        "astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d"
+        "astral-sh/setup-uv@v10.0.1"
     ).with_((
         ("version", version),
         ("version-file", version_file),
@@ -135,8 +133,6 @@ def setup_uv(
         ("resolution-strategy", resolution_strategy),
     )).name(
         "Setup uv"
-    ).comment(
-        uses="v10.0.1"
     ).outputs(
         "uv-version",
         "uv-path",

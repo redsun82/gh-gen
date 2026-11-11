@@ -1,3 +1,4 @@
+actions-lock: true
 actions:
 - pinned: false
   id: checkout
@@ -52,9 +53,9 @@ actions:
   owner: actions
   repo: checkout
   path: ''
-  resolved-ref: v7
+  resolved-ref: v7.0.1
   trusted: true
-- pinned: true
+- pinned: false
   id: pre_commit
   requested-name: Check
   name: Check
@@ -67,9 +68,8 @@ actions:
   repo: action
   path: ''
   resolved-ref: v3.0.1
-  sha: 2c7b3805fd2a0fd8c1884dcaebf91fc102a13ecd
   trusted: false
-- pinned: true
+- pinned: false
   id: setup_uv
   requested-name: Setup uv
   name: Setup uv
@@ -146,5 +146,4 @@ actions:
   repo: setup-uv
   path: ''
   resolved-ref: v10.0.1
-  sha: 20cfd1bf945f4377ade1205e4dbc17946fc9a30d
   trusted: false

@@ -12,7 +12,61 @@ import keyword
 
 from ...element import ConfigElement
 from ..utils import yaml, project_dir, load, dumps, write_or_diff, DiffError
-from ..config import UsesClause
+from ..config import Config, UsesClause
+
+ACTIONS_LOCK = pathlib.PurePosixPath(".github", "workflows", "actions.lock")
+
+
+def actions_lock_enabled(config: Config) -> bool:
+    """Whether pinning is left to `gh actions-lock`."""
+    if config.actions_lock is not None:
+        return config.actions_lock
+    return (project_dir() / ACTIONS_LOCK).exists()
+
+
+_VERSION_REGEX = re.compile(r"(v?)(\d+)(?:\.(\d+))?(?:\.(\d+))?(.*)", re.ASCII)
+_FULL_SHA_REGEX = re.compile(r"[0-9a-fA-F]{40}|[0-9a-fA-F]{64}")
+
+
+class _Version(typing.NamedTuple):
+    """Lenient version parsing, mirroring `SemVer` in github/actions-lockfile
+    (go/pkg/lockfile/version.go), which `gh actions-lock` uses to narrow refs."""
+
+    prefix: str
+    major: int
+    minor: int
+    patch: int
+    rest: str
+    raw: str
+
+    @classmethod
+    def parse(cls, ref: str) -> typing.Self | None:
+        if _FULL_SHA_REGEX.fullmatch(ref):
+            return None
+        m = _VERSION_REGEX.fullmatch(ref)
+        if m is None:
+            return None
+        prefix, major, minor, patch, rest = m.groups()
+        return cls(prefix, int(major), int(minor or 0), int(patch or 0), rest, ref)
+
+    @property
+    def is_major_only(self) -> bool:
+        return self.raw == f"{self.prefix}{self.major}"
+
+    @property
+    def is_full(self) -> bool:
+        return (
+            not self.rest
+            and not self.is_major_only
+            and self.raw != f"{self.prefix}{self.major}.{self.minor}"
+        )
+
+    def narrows(self, other: "_Version") -> bool:
+        return (
+            self.is_full
+            and self.major == other.major
+            and (other.is_major_only or self.minor == other.minor)
+        )
 
 
 class ActionInput(ConfigElement):
@@ -85,20 +139,21 @@ class Action(ConfigElement):
                     f"Invalid action specification: {action} (version required after @)"
                 )
         match spec.rstrip("/").split("/"):
-            case [".", *_] if version:
+            case ["." | "$", *_] if version:
                 raise ValueError(
                     f"Invalid action specification: {action} (local action cannot have a reference)"
                 )
-            case ["."]:
+            case ["." | "$"]:
                 raise ValueError(
                     f"Invalid action specification: {action} (path required)"
                 )
-            case [".", head, *tail] if version is None:
+            case [("." | "$") as prefix, *path]:
                 kwargs.pop("pinned", None)
                 kwargs.pop("trusted", None)
                 return LocalAction(
-                    id=id or _make_id(tail[-1]),
-                    path=f"{head}/{'/'.join(tail)}",
+                    id=id or _make_id(path[-1]),
+                    path="/".join(path),
+                    same_repo=prefix == "$" or None,
                     **kwargs,
                 )
             case ["", *_] | [_, "", *_]:
@@ -119,7 +174,7 @@ class Action(ConfigElement):
                     f"Invalid action specification: {action} (expected 'owner/repo[@version]')"
                 )
 
-    def fetch(self): ...
+    def fetch(self, actions_lock: bool = False, default_ref: str | None = None): ...
 
     def _load(self, f: typing.IO[str]):
         action_data = yaml.load(f)
@@ -140,17 +195,20 @@ class Action(ConfigElement):
 
 
 class LockData(ConfigElement):
+    actions_lock: bool
     actions: list[Action] = dataclasses.field(default_factory=list)
 
 
 class LocalAction(Action):
     path: str
+    # referenced as `$/path` (repository at the running commit) rather than `./path`
+    same_repo: bool
 
     @property
     def spec(self) -> str:
-        return f"./{self.path}"
+        return f"{'$' if self.same_repo else '.'}/{self.path}"
 
-    def fetch(self):
+    def fetch(self, actions_lock: bool = False, default_ref: str | None = None):
         """Fetch inputs from the local action directory."""
         source = project_dir().joinpath(self.path, "action.yml")
         if not source.exists():
@@ -220,21 +278,50 @@ class RemoteAction(Action):
                 f"gh api {address}",
             )
 
-    def _gh_api_jq(self, address: str, jq: str, **kwargs) -> str:
+    def _gh_api_jq(self, address: str, jq: str, *args, **kwargs) -> str:
         with self._gh_api(
-            "application/vnd.github+json", address, "--jq", jq, **kwargs
+            "application/vnd.github+json", address, "--jq", jq, *args, **kwargs
         ) as out:
             return out.read().strip()
 
-    def fetch(self):
-        """Fetch inputs from the remote action repository."""
-        if self.ref:
-            self.resolved_ref = self.ref
-        else:
-            self.resolved_ref = self._gh_api_jq("releases/latest", ".tag_name")
-            if self.trusted and not self.pinned:
-                # take just the major version
-                self.resolved_ref = self.resolved_ref.partition(".")[0]
+    def _narrow(self, ref: str) -> str:
+        """Narrow a partial version ref (`v4`, `v4.2`) to the highest full version tag in
+        its family on the same commit, as `gh actions-lock` would (see `BestPatchTagForSHA`
+        in github/gh-actions-lock). Any other ref is returned as is."""
+        version = _Version.parse(ref)
+        if version is None or version.is_full:
+            return ref
+        sha = self._gh_api_jq(f"commits/{ref}", ".sha").lower()
+        tags = self._gh_api_jq(
+            "tags", r'.[] | "\(.commit.sha) \(.name)"', "--paginate"
+        ).splitlines()
+        candidates = [
+            v
+            for tag_sha, _, name in (t.partition(" ") for t in tags)
+            if tag_sha.lower() == sha
+            and (v := _Version.parse(name))
+            and v.narrows(version)
+        ]
+        if not candidates:
+            return ref
+        best = max(
+            candidates,
+            key=lambda v: (v.major, v.minor, v.patch, v.prefix == "v", v.raw),
+        )
+        return best.raw
+
+    def fetch(self, actions_lock: bool = False, default_ref: str | None = None):
+        """Fetch inputs from the remote action repository.
+
+        Without a requested ref, `default_ref` or else the latest release is used."""
+        self.resolved_ref = (
+            self.ref or default_ref or self._gh_api_jq("releases/latest", ".tag_name")
+        )
+        if actions_lock:
+            self.resolved_ref = self._narrow(self.resolved_ref)
+        elif not self.ref and self.trusted and not self.pinned:
+            # take just the major version
+            self.resolved_ref = self.resolved_ref.partition(".")[0]
         if self.pinned:
             for kind in ("tags", "heads"):
                 try:
@@ -272,6 +359,9 @@ def sync_lock_data(
     uses = args.config.uses or {}
     lock_file = project_dir() / "gh-gen.lock"
     lock_data = load(LockData, lock_file)
+    actions_lock = actions_lock_enabled(args.config)
+    mode_changed = bool(lock_data.actions_lock) != actions_lock
+    lock_data.actions_lock = actions_lock or None
     actions = {a.id: a for a in lock_data.actions}
     for id in list(actions):
         uses.setdefault(id, None)
@@ -293,6 +383,12 @@ def sync_lock_data(
     ) -> bool:
         owner, _, _ = spec.partition("/")
         trusted = owner in args.config.trusted_owners
+        if actions_lock:
+            if pin:
+                raise ValueError(
+                    f"{id}: cannot pin with actions-lock enabled, `gh actions-lock` does the pinning"
+                )
+            pin = False
         return ActionDescription(
             id,
             spec,
@@ -322,8 +418,15 @@ def sync_lock_data(
             prev.spec.partition("/")[0] in args.config.trusted_owners,
             prev.requested_name,
         )
+        if mode_changed and prev_desc and new:
+            # pinning follows the mode, it was not requested
+            prev_desc = prev_desc._replace(pin=new.pin)
+        default_ref = None
         if not to_update(prev_desc, new):
-            continue
+            if not mode_changed or new is None:
+                continue
+            # re-resolve without upgrading
+            default_ref = getattr(prev, "resolved_ref", None)
         if new is None:
             del actions[id]
             continue
@@ -334,7 +437,7 @@ def sync_lock_data(
             trusted=new.trust,
         )
         # TODO: async
-        actions[id].fetch()
+        actions[id].fetch(actions_lock, default_ref)
 
         message = [f"{id}: "]
         if prev is None:

@@ -317,6 +317,29 @@ class MockedGhApi:
                 ".object.sha",
             ] = (this_call, f"{sha}\n")
 
+    def narrowing(self, target: str, ref: str, sha: str, tags: dict[str, str]):
+        """Mock narrowing `ref`, pointing to `sha`, with `tags` mapping names to shas."""
+        this_call = Call.get()
+        self.calls[
+            "gh",
+            "api",
+            "-H",
+            "Accept: application/vnd.github+json",
+            f"repos/{target}/commits/{ref}",
+            "--jq",
+            ".sha",
+        ] = (this_call, f"{sha}\n")
+        self.calls[
+            "gh",
+            "api",
+            "-H",
+            "Accept: application/vnd.github+json",
+            f"repos/{target}/tags",
+            "--jq",
+            r'.[] | "\(.commit.sha) \(.name)"',
+            "--paginate",
+        ] = (this_call, "".join(f"{s} {n}\n" for n, s in tags.items()))
+
 
 @pytest.fixture
 def mock_gh_api_call(monkeypatch):
@@ -910,6 +933,278 @@ def test_trusted_owners(repo, mock_gh_api_call):
         -  trusted: false
         +  trusted: true
         """)
+
+
+def test_actions_lock(repo, mock_gh_api_call):
+    repo.file(".github/workflows/actions.lock", "version: 1\n")
+    config = repo.config("""\
+        uses:
+            checkout: actions/checkout@v4
+            foo: owner/foo@v2.1
+            bar: owner/bar
+            baz: owner/baz@main
+        """)
+    lock = repo.lock()
+    # highest full tag in the `v4` family on the same commit
+    mock_gh_api_call.narrowing(
+        "actions/checkout",
+        "v4",
+        "sha4",
+        {
+            "v4": "sha4",
+            "v4.2.1": "sha4",
+            "v4.2.2": "sha4",
+            "v4.2.3": "other",
+            "v4.3.0-beta": "sha4",
+            "v5.0.0": "sha4",
+        },
+    )
+    mock_gh_api_call("actions/checkout", "v4.2.2", None, "{}")
+    # no full tag in the `v2.1` family on the same commit
+    mock_gh_api_call.narrowing("owner/foo", "v2.1", "shaf", {"v2.0.9": "shaf"})
+    mock_gh_api_call("owner/foo", "v2.1", None, "{}")
+    # full tags and non-version refs are not narrowed
+    mock_gh_api_call("owner/bar", "v3.0.0", None, "{}", as_latest=True)
+    mock_gh_api_call("owner/baz", "main", None, "{}")
+    main(["sync", "-v"])
+    config.expect_unchanged()
+    lock.expect_diff("""\
+        @@ -0,0 +1,45 @@
+        +actions-lock: true
+        +actions:
+        +- pinned: false
+        +  id: bar
+        +  name: Bar
+        +  inputs: []
+        +  outputs: []
+        +  owner: owner
+        +  repo: bar
+        +  path: ''
+        +  resolved-ref: v3.0.0
+        +  trusted: false
+        +- pinned: false
+        +  id: baz
+        +  name: Baz
+        +  inputs: []
+        +  outputs: []
+        +  owner: owner
+        +  repo: baz
+        +  path: ''
+        +  ref: main
+        +  resolved-ref: main
+        +  trusted: false
+        +- pinned: false
+        +  id: checkout
+        +  name: Checkout
+        +  inputs: []
+        +  outputs: []
+        +  owner: actions
+        +  repo: checkout
+        +  path: ''
+        +  ref: v4
+        +  resolved-ref: v4.2.2
+        +  trusted: true
+        +- pinned: false
+        +  id: foo
+        +  name: Foo
+        +  inputs: []
+        +  outputs: []
+        +  owner: owner
+        +  repo: foo
+        +  path: ''
+        +  ref: v2.1
+        +  resolved-ref: v2.1
+        +  trusted: false
+        """)
+    actions = pathlib.Path(".github", "workflows", "actions.py").read_text()
+    for spec in (
+        "actions/checkout@v4.2.2",
+        "owner/foo@v2.1",
+        "owner/bar@v3.0.0",
+        "owner/baz@main",
+    ):
+        assert f'"{spec}"' in actions
+    assert ".comment(" not in actions
+
+
+def test_actions_lock_mode_switch(repo, mock_gh_api_call):
+    uses = """\
+        uses:
+            checkout: actions/checkout@v4
+            bar: owner/bar
+        """
+    config = repo.config(uses)
+    lock = repo.lock()
+    mock_gh_api_call("actions/checkout", "v4", None, "{}")
+    mock_gh_api_call("owner/bar", "v3.1.0", "bar_sha", "{}", as_latest=True)
+    main(["sync", "-v"])
+    lock.expect_diff("""\
+        @@ -0,0 +1,23 @@
+        +actions:
+        +- pinned: true
+        +  id: bar
+        +  name: Bar
+        +  inputs: []
+        +  outputs: []
+        +  owner: owner
+        +  repo: bar
+        +  path: ''
+        +  resolved-ref: v3.1.0
+        +  sha: bar_sha
+        +  trusted: false
+        +- pinned: false
+        +  id: checkout
+        +  name: Checkout
+        +  inputs: []
+        +  outputs: []
+        +  owner: actions
+        +  repo: checkout
+        +  path: ''
+        +  ref: v4
+        +  resolved-ref: v4
+        +  trusted: true
+        """)
+
+    # `actions.lock` appearing re-resolves everything without upgrading
+    actions_lock = repo.file(".github/workflows/actions.lock", "version: 1\n")
+    mock_gh_api_call.narrowing(
+        "actions/checkout", "v4", "sha4", {"v4": "sha4", "v4.2.2": "sha4"}
+    )
+    mock_gh_api_call("actions/checkout", "v4.2.2", None, "{}")
+    mock_gh_api_call("owner/bar", "v3.1.0", None, "{}")
+    main(["sync", "-v"])
+    lock.expect_diff("""\
+        @@ -1,5 +1,6 @@
+        +actions-lock: true
+         actions:
+        -- pinned: true
+        +- pinned: false
+           id: bar
+           name: Bar
+           inputs: []
+        @@ -8,7 +9,6 @@
+           repo: bar
+           path: ''
+           resolved-ref: v3.1.0
+        -  sha: bar_sha
+           trusted: false
+         - pinned: false
+           id: checkout
+        @@ -19,5 +19,5 @@
+           repo: checkout
+           path: ''
+           ref: v4
+        -  resolved-ref: v4
+        +  resolved-ref: v4.2.2
+           trusted: true
+        """)
+
+    # configuration overrides detection
+    config.write("actions-lock: false\n" + textwrap.dedent(uses))
+    mock_gh_api_call("actions/checkout", "v4", None, "{}")
+    mock_gh_api_call("owner/bar", "v3.1.0", "bar_sha", "{}")
+    main(["sync", "-v"])
+    lock.expect_diff("""\
+        @@ -1,6 +1,5 @@
+        -actions-lock: true
+         actions:
+        -- pinned: false
+        +- pinned: true
+           id: bar
+           name: Bar
+           inputs: []
+        @@ -9,6 +8,7 @@
+           repo: bar
+           path: ''
+           resolved-ref: v3.1.0
+        +  sha: bar_sha
+           trusted: false
+         - pinned: false
+           id: checkout
+        @@ -19,5 +19,5 @@
+           repo: checkout
+           path: ''
+           ref: v4
+        -  resolved-ref: v4.2.2
+        +  resolved-ref: v4
+           trusted: true
+        """)
+
+    actions_lock.path.unlink()
+    config.write("actions-lock: true\n" + textwrap.dedent(uses))
+    mock_gh_api_call.narrowing(
+        "actions/checkout", "v4", "sha4", {"v4": "sha4", "v4.2.2": "sha4"}
+    )
+    mock_gh_api_call("actions/checkout", "v4.2.2", None, "{}")
+    mock_gh_api_call("owner/bar", "v3.1.0", None, "{}")
+    main(["sync", "-v"])
+    lock.expect_diff("""\
+        @@ -1,5 +1,6 @@
+        +actions-lock: true
+         actions:
+        -- pinned: true
+        +- pinned: false
+           id: bar
+           name: Bar
+           inputs: []
+        @@ -8,7 +9,6 @@
+           repo: bar
+           path: ''
+           resolved-ref: v3.1.0
+        -  sha: bar_sha
+           trusted: false
+         - pinned: false
+           id: checkout
+        @@ -19,5 +19,5 @@
+           repo: checkout
+           path: ''
+           ref: v4
+        -  resolved-ref: v4
+        +  resolved-ref: v4.2.2
+           trusted: true
+        """)
+
+
+def test_actions_lock_rejects_pin(repo, caplog):
+    repo.file(".github/workflows/actions.lock", "version: 1\n")
+    config = repo.config("uses: {}\n")
+    assert main(["add", "owner/foo@v1", "--pin"]) == 1
+    assert "cannot pin with actions-lock enabled" in caplog.text
+    config.expect_unchanged()
+    assert not pathlib.Path("gh-gen.lock").exists()
+
+
+def test_same_repo_local_action(repo):
+    config = repo.config()
+    lock = repo.lock()
+    repo.file(
+        "my/actions/foo/action.yml",
+        """\
+        name: Foo Action
+        """,
+    )
+    main(["add", "$/my/actions/foo", "-v"])
+    config.expect_diff("""\
+        @@ -0,0 +1,2 @@
+        +uses:
+        +  foo: $/my/actions/foo
+        """)
+    lock.expect_diff("""\
+        @@ -0,0 +1,7 @@
+        +actions:
+        +- id: foo
+        +  name: Foo Action
+        +  inputs: []
+        +  outputs: []
+        +  path: my/actions/foo
+        +  same-repo: true
+        """)
+    assert (
+        '"$/my/actions/foo"' in pathlib.Path(".github/workflows/actions.py").read_text()
+    )
+    main(["sync", "-v"])
+    config.expect_unchanged()
+    lock.expect_unchanged()
 
 
 @pytest.fixture

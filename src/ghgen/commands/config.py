@@ -20,6 +20,8 @@ class Config(ConfigElement):
         default_factory=lambda: list(Config.default_trusted_owners)
     )
     uses: dict[str, UsesClause | str]
+    # unset means enabled iff `.github/workflows/actions.lock` exists
+    actions_lock: bool
 
     def asdict(self):
         ret = super().asdict()

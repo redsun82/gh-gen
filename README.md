@@ -48,6 +48,7 @@ jobs:
 - [Quick start](#quick-start)
 - [How generation works](#how-generation-works)
 - [Managing action dependencies (`gh gen add`)](#managing-action-dependencies-gh-gen-add)
+  - [Using with `gh actions-lock`](#using-with-gh-actions-lock)
 - [Triggers (`on`)](#triggers-on)
 - [Jobs](#jobs)
   - [`runs_on`](#runs_on)
@@ -209,9 +210,34 @@ The rest of the dependency lifecycle is command-driven too:
 | `gh gen remove <id>` | Remove an action dependency |
 | `gh gen sync` | Regenerate `gh-gen.lock` from `gh-gen.yml` |
 
+`add` also accepts local actions: `./<path>` (relative to the job's working directory) or
+`$/<path>` (same repository at the running commit).
+
 Actions are pinned to a commit by default; those whose owner is listed in `trusted-owners`
 (just `actions` out of the box) are referenced by tag instead. Use `--no-pin`/`--pin` on
 `add` to override per action.
+
+### Using with `gh actions-lock`
+
+[`gh actions-lock`](https://github.com/github/gh-actions-lock) pins actions in
+`.github/workflows/actions.lock` instead of in the workflow files. When that file exists,
+`gh-gen` leaves pinning to it:
+
+- actions are referenced by their most precise version tag (`actions/checkout@v7` becomes
+  `actions/checkout@v7.0.1`), which `gh actions-lock` leaves as is;
+- `gh-gen.lock` records no commits, and `--pin` is an error.
+
+Set `actions-lock: true` or `false` in `gh-gen.yml` to override the detection. Run
+`gh actions-lock` after `gh gen`, and check both in CI:
+
+```bash
+gh gen && gh actions-lock
+gh gen --check && gh actions-lock --verify
+```
+
+Write full version tags in raw `uses("owner/repo@ref")` strings, as `gh actions-lock` rewrites
+partial ones. Bump versions with `gh gen update` rather than Dependabot, whose changes to the
+generated files `gh gen` would revert.
 
 ## Triggers (`on`)
 
