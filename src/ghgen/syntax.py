@@ -1267,12 +1267,14 @@ class _JobCallUpdater:
         self
 
 
+_ref = r"[\w./+-]+"
+
 _action_regex = re.compile(
-    r"^(?:\$/|(?a:(\.|\$)|[\w-]+)/[^@]*?(?P<action_name>[^/@]+)(?(1)|@[\w./-]+))$"
+    rf"^(?:\$/|(?a:(\.|\$)|[\w-]+)/[^@]*?(?P<action_name>[^/@]+)(?(1)|@{_ref}))$"
 )
 
 _reusable_workflow_regex = re.compile(
-    r"^(?a:(\.)|[\w-]+/[\w-]+)/\.github/workflows/[\w.-]+\.ya?ml(?(1)|@[\w/.-]+)$"
+    rf"^(?a:(\.)|[\w-]+/[\w-]+)/\.github/workflows/[\w.-]+\.ya?ml(?(1)|@{_ref})$"
 )
 
 

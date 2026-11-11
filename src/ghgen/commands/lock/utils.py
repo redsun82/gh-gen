@@ -9,10 +9,68 @@ import inflection
 import pystache
 import pathlib
 import keyword
+import urllib.parse
 
 from ...element import ConfigElement
 from ..utils import yaml, project_dir, load, dumps, write_or_diff, DiffError
-from ..config import UsesClause
+from ..config import Config, UsesClause
+
+ACTIONS_LOCK = pathlib.PurePosixPath(".github", "workflows", "actions.lock")
+# `pinned` value of actions whose pinning is left to `gh actions-lock`
+ACTIONS_LOCK_PIN = "actions-lock"
+Pin = typing.Literal["actions-lock"] | bool
+
+
+def actions_lock_enabled(config: Config) -> bool:
+    """Whether pinning is left to `gh actions-lock`."""
+    if config.actions_lock is not None:
+        return config.actions_lock
+    return (project_dir() / ACTIONS_LOCK).exists()
+
+
+_VERSION_REGEX = re.compile(r"(v?)(\d+)(?:\.(\d+))?(?:\.(\d+))?(.*)", re.ASCII)
+_FULL_SHA_REGEX = re.compile(r"[0-9a-fA-F]{40}|[0-9a-fA-F]{64}")
+
+
+class _Version(typing.NamedTuple):
+    """Lenient version parsing, mirroring `SemVer` in github/actions-lockfile
+    (go/pkg/lockfile/version.go), which `gh actions-lock` uses to narrow refs."""
+
+    prefix: str
+    major: int
+    minor: int
+    patch: int
+    rest: str
+    raw: str
+
+    @classmethod
+    def parse(cls, ref: str) -> typing.Self | None:
+        if _FULL_SHA_REGEX.fullmatch(ref):
+            return None
+        m = _VERSION_REGEX.fullmatch(ref)
+        if m is None:
+            return None
+        prefix, major, minor, patch, rest = m.groups()
+        return cls(prefix, int(major), int(minor or 0), int(patch or 0), rest, ref)
+
+    @property
+    def is_major_only(self) -> bool:
+        return self.raw == f"{self.prefix}{self.major}"
+
+    @property
+    def is_full(self) -> bool:
+        return (
+            not self.rest
+            and not self.is_major_only
+            and self.raw != f"{self.prefix}{self.major}.{self.minor}"
+        )
+
+    def narrows(self, other: "_Version") -> bool:
+        return (
+            self.is_full
+            and self.major == other.major
+            and (other.is_major_only or self.minor == other.minor)
+        )
 
 
 class ActionInput(ConfigElement):
@@ -85,20 +143,21 @@ class Action(ConfigElement):
                     f"Invalid action specification: {action} (version required after @)"
                 )
         match spec.rstrip("/").split("/"):
-            case [".", *_] if version:
+            case ["." | "$", *_] if version:
                 raise ValueError(
                     f"Invalid action specification: {action} (local action cannot have a reference)"
                 )
-            case ["."]:
+            case ["." | "$"]:
                 raise ValueError(
                     f"Invalid action specification: {action} (path required)"
                 )
-            case [".", head, *tail] if version is None:
+            case [("." | "$") as prefix, *path]:
                 kwargs.pop("pinned", None)
                 kwargs.pop("trusted", None)
                 return LocalAction(
-                    id=id or _make_id(tail[-1]),
-                    path=f"{head}/{'/'.join(tail)}",
+                    id=id or _make_id(path[-1]),
+                    path="/".join(path),
+                    same_repo=prefix == "$" or None,
                     **kwargs,
                 )
             case ["", *_] | [_, "", *_]:
@@ -119,7 +178,7 @@ class Action(ConfigElement):
                     f"Invalid action specification: {action} (expected 'owner/repo[@version]')"
                 )
 
-    def fetch(self): ...
+    def fetch(self, default_ref: str | None = None, locked_sha: str | None = None): ...
 
     def _load(self, f: typing.IO[str]):
         action_data = yaml.load(f)
@@ -140,17 +199,21 @@ class Action(ConfigElement):
 
 
 class LockData(ConfigElement):
+    # Accepted only to migrate older lockfiles.
+    actions_lock: bool
     actions: list[Action] = dataclasses.field(default_factory=list)
 
 
 class LocalAction(Action):
     path: str
+    # referenced as `$/path` (repository at the running commit) rather than `./path`
+    same_repo: bool
 
     @property
     def spec(self) -> str:
-        return f"./{self.path}"
+        return f"{'$' if self.same_repo else '.'}/{self.path}"
 
-    def fetch(self):
+    def fetch(self, default_ref: str | None = None, locked_sha: str | None = None):
         """Fetch inputs from the local action directory."""
         source = project_dir().joinpath(self.path, "action.yml")
         if not source.exists():
@@ -167,8 +230,9 @@ class RemoteAction(Action):
     ref: str
     resolved_ref: str
     sha: str
-    pinned: bool = True
-    trusted: bool = False
+    pinned: Pin = True
+    # only set without `gh actions-lock`, where it affects resolution
+    trusted: bool
 
     @property
     def spec(self) -> str:
@@ -176,9 +240,7 @@ class RemoteAction(Action):
 
     @property
     def resolved_spec(self) -> str:
-        return (
-            f"{self.unversioned_spec}@{self.sha if self.pinned else self.resolved_ref}"
-        )
+        return f"{self.unversioned_spec}@{self.sha or self.resolved_ref}"
 
     @property
     def unversioned_spec(self) -> str:
@@ -186,14 +248,14 @@ class RemoteAction(Action):
 
     @property
     def display_spec(self) -> str:
-        if self.pinned and self.resolved_ref != self.sha:
+        if self.sha and self.resolved_ref != self.sha:
             return f"{self.resolved_spec} ({self.resolved_ref})"
         else:
             return self.resolved_spec
 
     @property
     def comment(self):
-        if self.pinned and self.sha != self.resolved_ref:
+        if self.sha and self.sha != self.resolved_ref:
             return self.resolved_ref
         else:
             return None
@@ -220,22 +282,59 @@ class RemoteAction(Action):
                 f"gh api {address}",
             )
 
-    def _gh_api_jq(self, address: str, jq: str, **kwargs) -> str:
+    def _gh_api_jq(self, address: str, jq: str, *args, **kwargs) -> str:
         with self._gh_api(
-            "application/vnd.github+json", address, "--jq", jq, **kwargs
+            "application/vnd.github+json", address, "--jq", jq, *args, **kwargs
         ) as out:
             return out.read().strip()
 
-    def fetch(self):
-        """Fetch inputs from the remote action repository."""
-        if self.ref:
-            self.resolved_ref = self.ref
-        else:
-            self.resolved_ref = self._gh_api_jq("releases/latest", ".tag_name")
-            if self.trusted and not self.pinned:
-                # take just the major version
-                self.resolved_ref = self.resolved_ref.partition(".")[0]
-        if self.pinned:
+    def _narrow(self, ref: str, locked_sha: str | None = None) -> str:
+        """Narrow a partial version ref (`v4`, `v4.2`) to the highest full version tag in
+        its family on the same commit, as `gh actions-lock` would (see `BestPatchTagForSHA`
+        in github/gh-actions-lock). Full versions are returned as is.
+
+        With `locked_sha`, that commit is used rather than where `ref` points now, and it
+        is what anything that cannot be narrowed becomes, so as not to upgrade."""
+        version = _Version.parse(ref)
+        if version and version.is_full:
+            return ref
+        fallback = locked_sha or ref
+        if version is None:
+            return fallback
+        sha = (locked_sha or self._gh_api_jq(f"commits/{ref}", ".sha")).lower()
+        tags = self._gh_api_jq(
+            "tags", r'.[] | "\(.commit.sha) \(.name)"', "--paginate"
+        ).splitlines()
+        candidates = [
+            v
+            for tag_sha, _, name in (t.partition(" ") for t in tags)
+            if tag_sha.lower() == sha
+            and (v := _Version.parse(name))
+            and v.narrows(version)
+        ]
+        if not candidates:
+            return fallback
+        best = max(
+            candidates,
+            key=lambda v: (v.major, v.minor, v.patch, v.prefix == "v", v.raw),
+        )
+        return best.raw
+
+    def fetch(self, default_ref: str | None = None, locked_sha: str | None = None):
+        """Fetch inputs from the remote action repository.
+
+        Without a requested ref, `default_ref` or else the latest release is used.
+        `locked_sha` is the commit that was previously locked, which `actions-lock`
+        narrowing sticks to."""
+        self.resolved_ref = (
+            self.ref or default_ref or self._gh_api_jq("releases/latest", ".tag_name")
+        )
+        if self.pinned == ACTIONS_LOCK_PIN:
+            self.resolved_ref = self._narrow(self.resolved_ref, locked_sha)
+        elif not self.ref and self.trusted and not self.pinned:
+            # take just the major version
+            self.resolved_ref = self.resolved_ref.partition(".")[0]
+        if self.pinned is True:
             for kind in ("tags", "heads"):
                 try:
                     self.sha = self._gh_api_jq(
@@ -248,10 +347,9 @@ class RemoteAction(Action):
                     pass
             else:
                 self.sha = self.resolved_ref
+        ref = urllib.parse.quote(self.sha or self.resolved_ref)
         address = str(
-            pathlib.PurePosixPath(
-                "contents", self.path, f"action.yml?ref={self.sha or self.resolved_ref}"
-            )
+            pathlib.PurePosixPath("contents", self.path, f"action.yml?ref={ref}")
         )
         with self._gh_api("application/vnd.github.v3.raw", address) as out:
             self._load(out)
@@ -260,7 +358,7 @@ class RemoteAction(Action):
 class ActionDescription(typing.NamedTuple):
     id: str
     spec: str
-    pin: bool
+    pin: Pin
     trust: bool
     name: str | None
 
@@ -272,6 +370,13 @@ def sync_lock_data(
     uses = args.config.uses or {}
     lock_file = project_dir() / "gh-gen.lock"
     lock_data = load(LockData, lock_file)
+    if lock_data.actions_lock:
+        for action in lock_data.actions:
+            if isinstance(action, RemoteAction):
+                action.pinned = ACTIONS_LOCK_PIN
+                action.trusted = None
+    lock_data.actions_lock = None
+    actions_lock = actions_lock_enabled(args.config)
     actions = {a.id: a for a in lock_data.actions}
     for id in list(actions):
         uses.setdefault(id, None)
@@ -293,6 +398,12 @@ def sync_lock_data(
     ) -> bool:
         owner, _, _ = spec.partition("/")
         trusted = owner in args.config.trusted_owners
+        if actions_lock:
+            if pin:
+                raise ValueError(
+                    f"{id}: cannot pin with actions-lock enabled, `gh actions-lock` does the pinning"
+                )
+            pin = ACTIONS_LOCK_PIN
         return ActionDescription(
             id,
             spec,
@@ -322,8 +433,20 @@ def sync_lock_data(
             prev.spec.partition("/")[0] in args.config.trusted_owners,
             prev.requested_name,
         )
+        # pinning follows the mode, it was not requested
+        mode_changed = (
+            bool(prev_desc and new)
+            and (prev_desc.pin == ACTIONS_LOCK_PIN) != actions_lock
+        )
+        if mode_changed:
+            prev_desc = prev_desc._replace(pin=new.pin)
+        default_ref = locked_sha = None
         if not to_update(prev_desc, new):
-            continue
+            if not mode_changed:
+                continue
+            # re-resolve without upgrading
+            default_ref = getattr(prev, "resolved_ref", None)
+            locked_sha = getattr(prev, "sha", None)
         if new is None:
             del actions[id]
             continue
@@ -331,10 +454,10 @@ def sync_lock_data(
             f"{new.id}={new.spec}",
             requested_name=new.name,
             pinned=new.pin,
-            trusted=new.trust,
+            trusted=None if actions_lock else new.trust,
         )
         # TODO: async
-        actions[id].fetch()
+        actions[id].fetch(default_ref, locked_sha)
 
         message = [f"{id}: "]
         if prev is None:

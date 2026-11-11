@@ -13,7 +13,7 @@ def add_arguments(parser: argparse.ArgumentParser):
         type=str,
         help="The action(s) to add as a dependency (e.g., `actions/checkout@v2`)",
         nargs="+",
-        metavar="[id=](owner/repo[/path][@ref] | ./path)",
+        metavar="[id=](owner/repo[/path][@ref] | ./path | $/path)",
     )
     parser.add_argument(
         "--name",
@@ -23,7 +23,8 @@ def add_arguments(parser: argparse.ArgumentParser):
     parser.add_argument(
         "--pin",
         help="Pin the action to a specific commit "
-        "(true by default unless the owner is listed in `trusted-owners` in the configuration)",
+        "(true by default unless the owner is listed in `trusted-owners` in the configuration, "
+        "not allowed when `gh actions-lock` is used)",
         action=argparse.BooleanOptionalAction,
         default=None,
     )

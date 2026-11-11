@@ -115,6 +115,10 @@ def fromobj[T](x: typing.Any, t: type[T]) -> T:
             except ValueError:
                 continue
         raise ValueError(f"could not convert {x} to {t}")
+    if typing.get_origin(t) is typing.Literal:
+        if x not in typing.get_args(t):
+            raise ValueError(f"expected one of {typing.get_args(t)}, got {x!r}")
+        return x
     if t is types.NoneType or t is None:
         if x is not None:
             raise ValueError(f"expected None, got {type(x)}")
