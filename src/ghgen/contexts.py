@@ -1,123 +1,14 @@
 import threading
 import typing
+import re
 
 from .expr import contexts, RefExpr, Map, FlatMap
 from .rules import *
 from .workflow import *
+from ._context_types import Contexts
+from .schema import catalog, supports
 
-
-@contexts
-class Contexts:
-    class Steps(RefExpr):
-        class Step(RefExpr):
-            outputs: FlatMap
-            result: RefExpr
-            outcome: RefExpr
-
-        __getattr__: Map[Step]
-
-    steps: Steps
-    matrix: FlatMap
-
-    class Job(RefExpr):
-        class Container(RefExpr):
-            id: RefExpr
-            network: RefExpr
-
-        container: Container
-
-        class Services(RefExpr):
-            class Service(RefExpr):
-                id: RefExpr
-                network: RefExpr
-                ports: RefExpr
-
-            __getattr__: Map[Service]
-
-        services: Services
-        status: RefExpr
-
-    job: Job
-
-    class Jobs(RefExpr):
-        class Job:
-            outputs: FlatMap
-            result: RefExpr
-
-        __getattr__: Map[Job]
-
-    jobs: Jobs
-    needs: Jobs
-
-    class Runner(RefExpr):
-        name: RefExpr
-        os: RefExpr
-        arch: RefExpr
-        temp: RefExpr
-        tool_cache: RefExpr
-        debug: RefExpr
-        environment: RefExpr
-
-    runner: Runner
-
-    inputs: FlatMap
-
-    class Strategy(RefExpr):
-        _use_dashes = True
-
-        fail_fast: RefExpr
-        job_index: RefExpr
-        job_total: RefExpr
-        max_parallel: RefExpr
-
-    strategy: Strategy
-
-    secrets: FlatMap
-    vars: FlatMap
-    env: FlatMap
-
-    class Github(RefExpr):
-        action: RefExpr
-        action_path: RefExpr
-        action_ref: RefExpr
-        action_repository: RefExpr
-        # action_status: RefExpr
-        actor: RefExpr
-        actor_id: RefExpr
-        api_url: RefExpr
-        base_ref: RefExpr
-        env: RefExpr
-        event: typing.Any
-        event_name: RefExpr
-        event_path: RefExpr
-        graphql_url: RefExpr
-        head_ref: RefExpr
-        job: RefExpr
-        path: RefExpr
-        ref: RefExpr
-        ref_name: RefExpr
-        ref_protected: RefExpr
-        ref_type: RefExpr
-        repository: RefExpr
-        repository_id: RefExpr
-        repository_owner: RefExpr
-        repository_owner_id: RefExpr
-        repositoryUrl: RefExpr
-        retention_days: RefExpr
-        run_id: RefExpr
-        run_number: RefExpr
-        run_attempt: RefExpr
-        secret_source: RefExpr
-        server_url: RefExpr
-        sha: RefExpr
-        token: RefExpr
-        triggering_actor: RefExpr
-        workflow: RefExpr
-        workflow_ref: RefExpr
-        workflow_sha: RefExpr
-        workspace: RefExpr
-
-    github: Github
+Contexts = contexts(Contexts)
 
 
 steps = Contexts.steps
@@ -162,6 +53,56 @@ class ContextBase(threading.local, RuleSet):
         if not cond:
             self.error(message)
         return cond
+
+    def availability_rule(self, target: typing.Any, field: str | None) -> dict | None:
+        key = Element._key(field) if isinstance(field, str) else ""
+        job_prefix = "jobs.<job_id>."
+        match target:
+            case Step():
+                path = job_prefix + "steps." + key
+            case Job():
+                path = job_prefix + key
+            case Workflow():
+                path = key
+            case Strategy() | Matrix():
+                path = job_prefix + "strategy"
+            case RunsOn():
+                path = job_prefix + "runs-on"
+            case Service():
+                path = job_prefix + "services.<service_id>." + key
+            case Container():
+                path = job_prefix + "container." + key
+            case Credentials():
+                container = self.current_job and self.current_job.container
+                owner = (
+                    "container"
+                    if container and container.credentials is target
+                    else "services.<service_id>"
+                )
+                path = job_prefix + owner + ".credentials"
+            case Concurrency():
+                path = (job_prefix if self.current_job else "") + "concurrency"
+            case Environment():
+                path = job_prefix + "environment." + key
+            case JobDefaults() | JobDefaults.Run():
+                path = (job_prefix if self.current_job else "") + "defaults.run"
+            case Input() if (
+                self.current_workflow and self.current_workflow.on.workflow_call
+            ):
+                path = "on.workflow_call.inputs.<inputs_id>." + key
+            case Output() if not self.current_action:
+                path = "on.workflow_call.outputs.<output_id>.value"
+            case _:
+                return None
+        candidates = [
+            rule
+            for rule in catalog()["availability"]
+            if (
+                path == re.sub(r"\.<[^.]+>$", "", rule["path"])
+                or path.startswith(re.sub(r"\.<[^.]+>$", "", rule["path"]) + ".")
+            )
+        ]
+        return max(candidates, key=lambda rule: len(rule["path"]), default=None)
 
     @rule()
     def v(self, *, target: typing.Any = None, field: str | None = None) -> bool:
@@ -339,10 +280,69 @@ class ContextBase(threading.local, RuleSet):
 
     @rule(Contexts.env)
     def v(self, target: typing.Any = None, field: str | None = None) -> bool:
+        rule = self.availability_rule(target, field)
+        allowed = rule is not None and "env" in rule["contexts"]
         return self.check(
-            isinstance(target, Step),
+            isinstance(target, Step) or allowed,
             "`env` can only be used in steps",
         ) and self.check(
             field != "uses",
             "`env` cannot be used for `id` and `uses`",
+        )
+
+    @rule(github.action_path)
+    @rule(github.action_status)
+    def v(self, **kwargs) -> bool:
+        return self.check(
+            self.current_action,
+            "`github.action_path` and `github.action_status` are only available in composite actions",
+        )
+
+    @rule(github.action_ref)
+    @rule(github.action_repository)
+    def v(self, *, target: typing.Any = None, field: str | None = None) -> bool:
+        return self.check(
+            not isinstance(target, Step) or field != "run",
+            "`github.action_ref` and `github.action_repository` must be passed through `env`, not used directly in `run`",
+        )
+
+    def event_error(self, path: tuple[str, ...]) -> str | None:
+        workflow = self.current_workflow
+        if not workflow or workflow.on.workflow_call is not None:
+            return None
+        triggers = {
+            field.name: getattr(workflow.on, field.name)
+            for field in dataclasses.fields(workflow.on)
+            if field.name != "inputs" and getattr(workflow.on, field.name) is not None
+        }
+        if path[:2] in (("github", "base_ref"), ("github", "head_ref")):
+            if not triggers.keys() & {"pull_request", "pull_request_target"}:
+                return f"`{'.'.join(path)}` requires a pull_request or pull_request_target trigger"
+            return None
+        if path[:2] != ("github", "event") or len(path) == 2:
+            return None
+        data = catalog()
+        for event, trigger in triggers.items():
+            if event not in data["events"]:
+                return f"no payload schema for configured trigger `{event}`"
+            variants = data["events"][event]
+            activities = (
+                None
+                if event == "repository_dispatch"
+                else getattr(trigger, "types", None) or data["defaults"].get(event)
+            )
+            if path[2] == "inputs" and event == "workflow_dispatch":
+                names = {item.id for item in trigger.inputs or ()}
+                if len(path) == 3 or (len(path) == 4 and path[3] in names):
+                    return None
+                continue
+            if any(
+                supports(node, path[2:])
+                for activity, node in variants.items()
+                if activities is None or activity in activities
+            ):
+                return None
+        return (
+            f"`{'.'.join(path)}` is unavailable for configured triggers "
+            f"({', '.join(sorted(triggers))})"
         )

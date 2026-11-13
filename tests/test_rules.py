@@ -86,6 +86,22 @@ def test_rules_pass(sut):
     ]
 
 
+def test_stacked_rule_decorators():
+    class Rules(RuleSet):
+        def __init__(self):
+            self.called = 0
+
+        @rule(x.a)
+        @rule(x.y)
+        def validate_field(self, **kwargs):
+            self.called += 1
+            return True
+
+    rules = Rules()
+    assert rules.validate([x.a, x.y])
+    assert rules.called == 2
+
+
 def test_rules_fail_at_start(sut):
     sut.mock.x.return_value = False
     assert not sut.validate(x & x.y)

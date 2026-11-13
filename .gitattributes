@@ -1,3 +1,8 @@
 /gh-gen.lock linguist-generated=true
+/uv.lock linguist-generated=true
 /.github/workflows/actions.py linguist-generated=true
-
+/.github/workflows/actions.lock linguist-generated=true
+/.github/workflows/check.yml linguist-generated=true
+/.github/workflows/update_contexts.yml linguist-generated=true
+/src/ghgen/_context_data.json linguist-generated=true
+/src/ghgen/_context_types.py linguist-generated=true

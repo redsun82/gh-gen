@@ -8,6 +8,7 @@ def rule(e: RefExpr = RefExpr()):
     def decorator(f):
         assert callable(f)
         f.rule = e._segments
+        f.rules = [*getattr(f, "rules", ()), e._segments]
         return f
 
     return decorator
@@ -20,9 +21,8 @@ class _RulesDict(dict):
 
     def __setitem__(self, key, value):
         super().__setitem__(key, value)
-        rule = getattr(value, "rule", None)
-        if rule is not None:
-            self.rules.append((rule, value))
+        for path in getattr(value, "rules", ()):
+            self.rules.append((path, value))
 
 
 class _RuleSetMetaclass(type):
