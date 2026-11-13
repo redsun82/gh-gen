@@ -1,0 +1,28 @@
+# generated from update_contexts.py::update_contexts
+on:
+  schedule:
+  - cron: 17 4 * * 1
+  workflow_dispatch: {}
+permissions:
+  actions: write
+  contents: write
+  pull-requests: write
+concurrency:
+  group: context-updates
+  cancel-in-progress: false
+defaults:
+  run:
+    shell: bash
+jobs:
+  update_contexts:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v7.0.1
+      with:
+        fetch-depth: '0'
+    - name: Setup uv
+      uses: astral-sh/setup-uv@v10.0.1
+    - run: uv run python scripts/propose_context_update.py
+      env:
+        GH_TOKEN: ${{ github.token }}

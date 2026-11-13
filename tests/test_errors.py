@@ -293,7 +293,7 @@ def test_steps_errors(error):
         run(t"echo {steps.x.outcome}")
         run("").id("x")
         error("step `y` not defined yet in job `j`")
-        step("print self outcome?").run(t" {steps.y.result}").id("y")
+        step("print self outcome?").run(t" {steps.y.conclusion}").id("y")
         return steps.z.outputs
 
 
@@ -307,6 +307,7 @@ def test_wrong_runner_use(error):
     def j():
         error("`runner` cannot be used to update a job `strategy`")
         strategy.fail_fast(runner.os == "Linux")
+        error("`runner` cannot be used in `jobs.<job_id>.strategy`")
         strategy.matrix(x=[runner.environment])
         error("`runner` cannot be used to update a job `runs-on`")
         runs_on(runner.os)

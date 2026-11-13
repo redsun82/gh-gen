@@ -7,6 +7,9 @@ workflows:
         - 'actions/checkout@v7.0.1'
         - 'astral-sh/setup-uv@v10.0.1'
         - 'pre-commit/action@v3.0.1'
+    '.github/workflows/update_contexts.yml':
+        - 'actions/checkout@v7.0.1'
+        - 'astral-sh/setup-uv@v10.0.1'
 dependencies:
     'actions/cache@v4':
         ref: 'v4'

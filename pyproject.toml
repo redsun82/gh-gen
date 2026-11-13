@@ -29,4 +29,5 @@ target-version = ["py314"]
 [dependency-groups]
 dev = [
     "black>=26.5.1",
+    "pyright>=1.1.414",
 ]

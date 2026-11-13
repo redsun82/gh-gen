@@ -673,11 +673,14 @@ def test_workflow_dispatch_inputs():
       test_workflow_call:
         runs-on: ubuntu-latest
         steps:
-        - if: secrets.token && secrets.auth
+        - if: env.TOKEN && env.AUTH
           run: |
             echo ${{ inputs.foo }}
             echo ${{ inputs.bar }}
             echo ${{ inputs.baz }}
+          env:
+            TOKEN: ${{ secrets.token }}
+            AUTH: ${{ secrets.auth }}
     """)
 def test_workflow_call():
     token = on.workflow_call.secret(required=True)
@@ -690,7 +693,7 @@ def test_workflow_call():
         echo {foo}
         echo {bar}
         echo {baz}
-    """).if_(token & auth)  # fmt: skip
+    """).env(TOKEN=token, AUTH=auth).if_(env.TOKEN & env.AUTH)  # fmt: skip
 
 
 @expect("""\
@@ -937,7 +940,7 @@ def test_different_inputs():
         - name: use yy
           run: ${{ steps.yy.outputs.a }}
         - name: use z
-          run: ${{ steps.y.result }}
+          run: ${{ steps.y.conclusion }}
         - id: step-1
           name: anon0
           run: ''
@@ -963,7 +966,7 @@ def test_id():
     step("use x").run(x.outputs)
     step("use y").run(y.outcome)
     step("use yy").run(yy.outputs.a)
-    step("use z").run(z.result)
+    step("use z").run(z.conclusion)
 
     code = "\n".join(str(step(f"anon{i}").outcome) for i in range(3))
     step("use anonymous").run(code)
@@ -1034,7 +1037,7 @@ def test_step_id_underscores():
       j:
         runs-on: ubuntu-latest
         steps:
-        - name: ${{ steps.*.result }}
+        - name: ${{ steps.*.conclusion }}
           run: ''
     """)
 def test_steps_array():
@@ -1042,7 +1045,7 @@ def test_steps_array():
 
     @job
     def j():
-        step(steps._.result)
+        step(steps._.conclusion)
 
 
 @expect("""\
@@ -1281,10 +1284,8 @@ def test_job_as_context():
       j1:
         runs-on: ubuntu-latest
         container:
-          image: ghcr.io/owner/image
-          credentials:
-            username: foo
-            password: baz
+          image: node:18
+          credentials: {}
           env:
             NODE_ENV: development
           ports:
@@ -1296,7 +1297,11 @@ def test_job_as_context():
         steps:
         - run: echo ${{ job.container.id }}
       j2:
-        container: {}
+        container:
+          image: ghcr.io/owner/image
+          credentials:
+            username: foo
+            password: baz
     """)
 def test_container():
     on.workflow_dispatch()

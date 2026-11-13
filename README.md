@@ -501,7 +501,7 @@ A job cannot mix a workflow `uses` with `runs_on` or steps.
 
 Inside a job (or at the workflow top level for an implicit job) add steps with `run`, `uses`,
 or the general `step(...)` builder. Builders are chainable and each returns a handle whose
-`.outputs`, `.outcome`, and `.result` are usable in expressions.
+`.outputs`, `.outcome`, and `.conclusion` are usable in expressions.
 
 ```python
 @job
@@ -582,6 +582,72 @@ run("").if_(always())
 > Plain f-strings still interpolate contexts but are deprecated in favor of t-strings, and
 > emit a `DeprecationWarning`. On Python < 3.14, where t-strings (PEP 750) aren't available,
 > you can use f-strings for now.
+
+### Nested context checking
+
+`github.event` exposes generated webhook fields, including nested objects, indexed array
+items, and `._` object filters. Select the Python environment containing `ghgen` in your
+editor to use its packaged type information.
+
+```python
+@workflow
+def pr_details():
+    on.pull_request()
+    run(t"echo {github.event.pull_request.head.sha}")
+    run("echo bugfix").if_(
+        contains(github.event.pull_request.labels._.name, "bug")
+    )
+```
+
+Unknown fields fail generation and are flagged by type checkers on closed schema objects.
+Generation also checks references against the configured triggers and activity types.
+For multiple triggers, a field is accepted if **any** configured event provides it.
+This catches PR payload references in push-only workflows without rejecting guarded
+PR/push workflows. It does not guarantee that optional fields are present at runtime.
+Reusable workflows and composite actions inherit an unknown caller event, so their
+payload references are not restricted to a particular trigger.
+
+Use `on.event(...)` for modeled triggers without a dedicated builder:
+
+```python
+@workflow
+def after_build():
+    on.event("workflow_run", workflows=["Build"], types=["completed"])
+    run(t"echo {github.event.workflow_run.head_sha}")
+```
+
+Repository variables, secret names, custom dispatch payloads, and JSON returned by
+`fromJson` remain dynamic. Names created by arbitrary Python code cannot receive
+exhaustive editor completion. Context checks also enforce field-placement restrictions,
+such as disallowing `secrets` directly in `if` conditions.
+
+Use `.conclusion` for a step's final status and `.outcome` for its status before
+`continue-on-error`. Step `.result` is a deprecated alias that renders `.conclusion`;
+job handles continue to use `.result`.
+
+### Updating GitHub definitions
+
+Context definitions ship with the package; normal generation does not fetch schemas.
+The [source snapshot](./src/ghgen/_context_data.json) records pinned upstream revisions
+and hashes from GitHub's OpenAPI description, context documentation, and Actions workflow
+schema. It targets documented GitHub.com behavior, not individual GHES versions.
+Source attribution and licenses are in [CONTEXT-SOURCES](./src/ghgen/CONTEXT-SOURCES).
+
+For development, refresh upstream definitions or reproduce the committed output:
+
+```bash
+uv run python scripts/update_contexts.py --refresh
+uv run python scripts/update_contexts.py --check
+uv run pytest
+```
+
+The [update workflow](./.github/workflows/update_contexts.py) runs on its configured
+schedule or manual dispatch and maintains one reviewed update PR. It validates changes
+before pushing and explicitly dispatches checks to avoid suppression or approval gates
+for `GITHUB_TOKEN`-created PRs. Enable **Allow GitHub Actions to create and approve pull
+requests** in the repository's Actions settings for PR creation. Updates are not
+automatically merged or released. Changed upstream formats or inconsistent contracts
+fail the update instead of silently weakening checks.
 
 ## Workflow-level settings
 

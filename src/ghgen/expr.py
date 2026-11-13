@@ -118,8 +118,27 @@ class Expr(abc.ABC):
             case str() as s:
                 if "\0" in s:
                     _warn_fstring_deprecated()
-                for m in re.finditer("\0([a-zA-Z0-9\\-_.]+)", s):
-                    yield tuple(m[1].split("."))
+                for match in re.finditer(
+                    r"\0([\w.*-]+)((?:\['(?:[^']|'')*'\]|\[\d+\]|\.[\w*-]+)*)",
+                    s,
+                ):
+                    path = tuple(match[1].split("."))
+                    for segment in re.finditer(
+                        r"\.([\w*-]+)|\['((?:[^']|'')*)'\]|\[(\d+)\]",
+                        match[2],
+                    ):
+                        path += (
+                            (
+                                segment[1]
+                                if segment[1] is not None
+                                else (
+                                    segment[2].replace("''", "'")
+                                    if segment[2] is not None
+                                    else "*"
+                                )
+                            ),
+                        )
+                    yield path
             case dict():
                 for k, v in x.items():
                     yield from Expr._paths(k)
@@ -134,6 +153,37 @@ class Expr(abc.ABC):
                     return
                 for f in fields:
                     yield from Expr._paths(getattr(x, f.name))
+
+    @staticmethod
+    def _functions(value: typing.Any) -> typing.Generator[str, None, None]:
+        if Template is not None and isinstance(value, Template):
+            for item in value.interpolations:
+                yield from Expr._functions(item.value)
+        elif isinstance(value, CallExpr):
+            yield value._function
+            yield from Expr._functions(value._args)
+        elif isinstance(value, RefExpr) and value._source is not None:
+            yield from Expr._functions(value._source)
+        elif isinstance(value, Expr):
+            accessed = value._access
+            if accessed is not value:
+                yield from Expr._functions(accessed)
+            elif dataclasses.is_dataclass(value):
+                for field in dataclasses.fields(value):
+                    yield from Expr._functions(getattr(value, field.name))
+        elif isinstance(value, dict):
+            for key, item in value.items():
+                yield from Expr._functions(key)
+                yield from Expr._functions(item)
+        elif isinstance(value, (tuple, list)):
+            for item in value:
+                yield from Expr._functions(item)
+        elif isinstance(value, str):
+            for formula in re.findall(
+                r"\$\{\{((?:'(?:[^']|'')*'|[^'])*?)\}\}", value, re.S
+            ):
+                unquoted = re.sub(r"'(?:[^']|'')*'", "''", formula)
+                yield from re.findall(r"\b(\w+)\s*\(", unquoted)
 
     def __str__(self) -> str:
         return f"${{{{ {self._syntax} }}}}"
@@ -191,12 +241,15 @@ class Expr(abc.ABC):
     def __getitem__(self, key: typing.Any) -> "Expr":
         return ItemExpr(self._access, self._coerce(key))
 
-    def __getattr__(self, key: str) -> typing.Self:
+    def _attribute(self, key: str) -> "Expr":
         if key == "_":
             return DotExpr(self._access, "*")
         if key.startswith("_"):
             raise AttributeError(key)
         return DotExpr(self._access, key)
+
+    if not typing.TYPE_CHECKING:
+        __getattr__ = _attribute
 
     def __bool__(self):
         _ = self._access
@@ -207,6 +260,14 @@ class Expr(abc.ABC):
 
 
 Value = str | bool | int | float | Expr
+
+
+class DynamicExpr(Expr):
+    def __getattr__(self, key: str) -> "DynamicExpr":
+        return typing.cast(DynamicExpr, self._attribute(key))
+
+    def __getitem__(self, key: typing.Any) -> "DynamicExpr":
+        return ItemExpr(self._access, self._coerce(key))
 
 
 instantiate = Expr._instantiate
@@ -280,6 +341,7 @@ def reftree(x: typing.Any) -> RefTree:
 class RefExpr(Expr):
     _segments: tuple[str, ...]
     _child_factory: typing.Callable[[str], typing.Self] | None = None
+    _source: Expr | None = None
 
     _store: typing.ClassVar[dict[tuple[str, ...], weakref.ReferenceType["RefExpr"]]] = (
         {}
@@ -313,12 +375,26 @@ class RefExpr(Expr):
 
     @property
     def _syntax(self) -> str:
+        if self._source is not None:
+            return self._source._syntax
         return f"\0{self._path}"
 
     def _get_paths(self) -> typing.Generator[tuple[str, ...], None, None]:
         yield self._segments
+        source = self._source
+        while source is not None:
+            match source:
+                case ItemExpr():
+                    yield from source._index._get_paths()
+                    source = source._expr
+                case DotExpr():
+                    source = source._expr
+                case RefExpr():
+                    source = source._source
+                case _:
+                    break
 
-    def __getattr__(self, name) -> Expr:
+    def _attribute(self, name: str) -> "Expr":
         if name == "_":
             if self._child_factory:
                 return self._child_factory("*")
@@ -329,17 +405,23 @@ class RefExpr(Expr):
             return self._child_factory(name)
         return ~ErrorExpr(f"`{name}` not available in `{self._path}`")
 
+    if not typing.TYPE_CHECKING:
+        __getattr__ = _attribute
+
 
 def contexts[T](cls: type[T]) -> type[T]:
     def process(ref, annotation):
         if annotation is RefExpr:
+            return
+        if isinstance(annotation, type) and hasattr(annotation, "_schema_id"):
             return
 
         use_dashes = getattr(annotation, "_use_dashes", False)
 
         def child_factory(key: str, a: type) -> RefExpr:
             key = key.replace("_", "-") if use_dashes else key
-            ret = RefExpr(*ref._segments, key)
+            cls = a if isinstance(a, type) and hasattr(a, "_schema_id") else RefExpr
+            ret = cls(*ref._segments, key)
             process(ret, a)
             return ret
 
@@ -349,7 +431,10 @@ def contexts[T](cls: type[T]) -> type[T]:
             )
             return
 
-        for f, a in annotation.__annotations__.items():
+        annotations = annotation.__annotations__
+        if any(isinstance(a, str) for a in annotations.values()):
+            annotations = typing.get_type_hints(annotation)
+        for f, a in annotations.items():
             # for mappings we use a `Map` annotation to `__getattr__` which will be picked up by some type checkers
             # (notably pylance in VSCode, while PyCharm doesn't seem to pick that up yet)
             if f == "__getattr__":
@@ -437,7 +522,7 @@ class NotExpr(Expr):
 
 
 @dataclasses.dataclass(frozen=True, eq=False, repr=False)
-class ItemExpr(Expr):
+class ItemExpr(DynamicExpr):
     _expr: Expr
     _index: Expr
 
@@ -455,7 +540,7 @@ class ItemExpr(Expr):
 
 
 @dataclasses.dataclass(frozen=True, eq=False, repr=False)
-class DotExpr(Expr):
+class DotExpr(DynamicExpr):
     _expr: Expr
     _attr: str
 
@@ -486,6 +571,10 @@ class CallExpr(Expr):
             yield from a._get_paths()
 
 
+class DynamicCallExpr(CallExpr, DynamicExpr):
+    pass
+
+
 @dataclasses.dataclass(eq=False)
 class ProxyExpr(Expr):
     _filled_expr: Expr | None = None
@@ -506,12 +595,18 @@ class ProxyExpr(Expr):
     def _get_paths(self) -> typing.Generator[tuple[str, ...], None, None]:
         return self._access._get_paths()
 
-    def __getattr__(self, item: str) -> typing.Any:
+    def _attribute(self, item: str) -> typing.Any:
         if item in ("_access", "_syntax"):  # why is this necessary?
             return getattr(ProxyExpr, item).__get__(self)
         if item.startswith("_"):
             raise AttributeError(item)
         return getattr(self._access, item)
+
+    if not typing.TYPE_CHECKING:
+        __getattr__ = _attribute
+
+        def __getitem__(self, key: typing.Any) -> Expr:
+            return self._access[key]
 
 
 @dataclasses.dataclass(eq=False)

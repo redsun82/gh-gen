@@ -23,6 +23,8 @@ from .expr import (
     function,
     dedent_template,
     rewrite_ref_root,
+    DynamicCallExpr,
+    DynamicExpr,
 )
 
 try:
@@ -31,6 +33,14 @@ except ImportError:  # Python < 3.14
     Template = None
 from . import workflow
 from .contexts import *
+from ._context_types import JobResult
+
+if typing.TYPE_CHECKING:
+    from ._context_types import JobContext as _JobContext
+    from ._context_types import StepContext as _StepContext
+    from ._context_types import StrategyContext as _StrategyContext
+else:
+    _JobContext = _StepContext = _StrategyContext = object
 
 
 @dataclass
@@ -190,6 +200,10 @@ class _Context(ContextBase):
     auto_job_reason: str | None = None
     errors: list[Error] = field(default_factory=list)
     action_dependencies: list["ActionInfo"] = field(default_factory=list)
+    event_checks: dict[
+        tuple[int, str | int],
+        tuple[typing.Any, typing.Any, dict[tuple[str, ...], Error]],
+    ] = field(default_factory=dict)
 
     def reset(self):
         self.reset_job()
@@ -200,6 +214,7 @@ class _Context(ContextBase):
         self.auto_job_reason = None
         self.errors = []
         self.action_dependencies = []
+        self.event_checks = {}
 
     def reset_job(self, job: Job | None = None, job_id: str | None = None):
         self.current_job = job
@@ -243,6 +258,19 @@ class _Context(ContextBase):
         w = self.current_workflow
         assert w is not None
         id = self.current_workflow_id
+        for target, field, origins in self.event_checks.values():
+            index = field if isinstance(field, (str, int)) else field.index
+            value = (
+                target[index]
+                if isinstance(target, (dict, list))
+                else getattr(target, index)
+            )
+            for path in sorted(set(Expr._paths(value)), key=len, reverse=True):
+                if path in origins and (message := self.event_error(path)):
+                    error = origins[path]
+                    error.message = message
+                    self.errors.append(error)
+                    break
         for j_id, j in w.jobs.items():
             self.process_final_steps(j.steps or [], f"job `{j_id}`")
             if j.steps and j.runs_on is None:
@@ -382,7 +410,47 @@ class _Context(ContextBase):
                     f"expected `{field}` to be of type `{log_type}`, got `{value!r}` of type `{type(value).__name__}`"
                 )
                 return False
-        return super().validate(value, target=target, field=field)
+        if isinstance(target, TypedTrigger) and field == "types" and value:
+            event = next(
+                (
+                    item.name
+                    for item in fields(self.current_workflow.on)
+                    if getattr(self.current_workflow.on, item.name) is target
+                ),
+                None,
+            )
+            allowed = catalog()["activities"].get(event)
+            if allowed and event != "repository_dispatch":
+                unexpected = [item for item in value if item not in allowed]
+                if unexpected:
+                    self.error(f"unknown activity types for `{event}`: {unexpected!r}")
+                    return False
+        if not super().validate(value, target=target, field=field):
+            return False
+        paths = set(Expr._paths(value))
+        rule = self.availability_rule(target, field)
+        if rule is not None:
+            for root in sorted({path[0] for path in paths if path}):
+                if root not in rule["contexts"]:
+                    self.error(f"`{root}` cannot be used in `{rule['path']}`")
+                    return False
+            restricted = {"hashFiles", "always", "cancelled", "success", "failure"}
+            for function in sorted(set(Expr._functions(value)) & restricted):
+                if function not in rule["functions"]:
+                    self.error(f"`{function}` cannot be used in `{rule['path']}`")
+                    return False
+        if self.current_workflow is not None:
+            for path in sorted(paths):
+                if path[:1] == ("github",):
+                    key = (
+                        id(target),
+                        field if isinstance(field, (str, int)) else id(field),
+                    )
+                    _, _, origins = self.event_checks.setdefault(
+                        key, (target, field, {})
+                    )
+                    origins[path] = self.make_error("")
+        return True
 
 
 type _Path = tuple[str | int, ...]
@@ -730,6 +798,19 @@ def _check_workflow_dispatch_max_inputs():
 
 
 class _OnUpdater(_Updater):
+    def event(self, event: str, **settings: typing.Any) -> typing.Self:
+        if event == "inputs" or event not in {field.name for field in fields(On)}:
+            _ctx.error(f"unknown workflow trigger `{event}`")
+            return self
+        updater = self._sub_updater(_Updater, event)._ensure()
+        declared = {field.name for field in fields(updater._element)}
+        for key, value in settings.items():
+            if key not in declared:
+                _ctx.error(f"unknown setting `{key}` for trigger `{event}`")
+                continue
+            updater._update(key, _value, value)
+        return self
+
     class _PullRequestOrPush(_Updater):
         def branches(self, *branches: str | typing.Iterable[str]) -> typing.Self:
             return self._update("branches", _seq, branches)
@@ -1039,6 +1120,8 @@ def run_name(name: Value):
 
 
 class _EnvUpdater(ProxyExpr, _Updater[dict[str, Value]]):
+    __getattr__: Map[RefExpr]
+
     def __init__(self):
         ProxyExpr.__init__(self)
         _Updater.__init__(self, _get_job_or_workflow, ("env",))
@@ -1101,7 +1184,7 @@ def environment(name: Value, *, url: Value | None = None):
     _update_element(_get_job, "environment", _value, value)
 
 
-class _StrategyUpdater(ProxyExpr, _Updater[Strategy]):
+class _StrategyUpdater(ProxyExpr, _Updater[Strategy], _StrategyContext):
     def __init__(self):
         ProxyExpr.__init__(self)
         _Updater.__init__(self, _get_job, ("strategy",))
@@ -1167,6 +1250,10 @@ strategy = _StrategyUpdater()
 
 
 class _ContainerUpdater(_Updater[Container]):
+    def _ensure(self) -> typing.Self:
+        # Root builders must not retain another job's cached container.
+        return _Updater._ensure(type(self)(self._start, self._path))
+
     def image(self, image: Value | None) -> typing.Self:
         return self._update("image", _value, image)
 
@@ -1465,10 +1552,18 @@ def workflow(
 type JobCall = typing.Callable[..., None]
 
 
-class _Job(ProxyExpr):
+class _Job(ProxyExpr, _JobContext):
+    @typing.overload
+    def __call__(self, func: JobCall, *, id: str | None = None) -> JobResult: ...
+
+    @typing.overload
+    def __call__(
+        self, func: None = None, *, id: str | None = None
+    ) -> typing.Callable[[JobCall], JobResult]: ...
+
     def __call__(
         self, func: JobCall | None = None, *, id: str | None = None
-    ) -> typing.Callable[[JobCall], Expr] | Expr:
+    ) -> typing.Callable[[JobCall], JobResult] | JobResult:
         if func is None:
             return lambda func: self(func, id=id)
         id = id or func.__name__
@@ -1532,7 +1627,7 @@ def _make_id(id: str) -> str:
 
 
 @dataclass
-class _StepUpdater(ProxyExpr, _IdElementUpdater[Step]):
+class _StepUpdater(ProxyExpr, _IdElementUpdater[Step], _StepContext):
     def __init__(self, *args, **kwargs):
         ProxyExpr.__init__(self)
         _IdElementUpdater.__init__(self, *args, **kwargs)
@@ -1659,6 +1754,7 @@ class _StepUpdater(ProxyExpr, _IdElementUpdater[Step]):
         return self._ensure_use_step()._update("with_", _field_map, (mapping, kwargs))
 
     class _StepOutputs(ProxyExpr):
+        __getattr__: Map[RefExpr]
         _parent: "_StepUpdater"
 
         def __init__(self, parent: "_StepUpdater"):
@@ -1824,7 +1920,12 @@ class _ConcurrencyUpdater(_Updater[Concurrency]):
 concurrency = _ConcurrencyUpdater()
 
 cancelled = function("cancelled", 0)
-fromJson = function("fromJson")
+
+
+def fromJson(value: Value) -> DynamicExpr:
+    return DynamicCallExpr("fromJson", Expr._coerce(value))
+
+
 toJson = function("toJson")
 contains = function("contains", 2)
 hashFiles = function("hashFiles", 1, ...)

@@ -167,6 +167,12 @@ class Push(ChangeTrigger):
     ignore_tags: list[str]
 
 
+class WorkflowRun(StrictTypedTrigger("completed", "in_progress", "requested")):
+    workflows: list[str]
+    branches: list[str]
+    branches_ignore: list[str]
+
+
 class Schedule(Trigger):
     cron: str
 
@@ -319,7 +325,7 @@ class On(Element):
     watch: StrictTypedTrigger("started")
     workflow_call: WorkflowCall
     workflow_dispatch: WorkflowDispatch
-    workflow_run: StrictTypedTrigger("completed", "in_progress", "requested")
+    workflow_run: WorkflowRun
 
     # extensions
     inputs: list[Input] | None = field(
@@ -339,6 +345,8 @@ class On(Element):
     def asdict(self) -> typing.Any:
         ret = super().asdict()
         ret.pop("inputs", None)
+        if "schedule" in ret:
+            ret["schedule"] = [ret["schedule"]]
         return ret
 
 

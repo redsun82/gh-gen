@@ -16,6 +16,8 @@ jobs:
       uses: actions/checkout@v7.0.1
     - name: Setup uv
       uses: astral-sh/setup-uv@v10.0.1
+    - name: Check generated context definitions
+      run: uv run python scripts/update_contexts.py --check
     - id: Check
       name: Check
       uses: pre-commit/action@v3.0.1
