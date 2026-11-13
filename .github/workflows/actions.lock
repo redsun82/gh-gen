@@ -5,7 +5,7 @@ version: 'v0.0.3'
 workflows:
     '.github/workflows/check.yml':
         - 'actions/checkout@v7.0.1'
-        - 'astral-sh/setup-uv@v10.0.1'
+        - 'astral-sh/setup-uv@v10.3.3'
         - 'pre-commit/action@v3.0.1'
 dependencies:
     'actions/cache@v4':
@@ -18,9 +18,9 @@ dependencies:
         commit: 'sha1-3d3c42e5aac5ba805825da76410c181273ba90b1'
         owner_id: 44036562
         repo_id: 197814629
-    'astral-sh/setup-uv@v10.0.1':
-        ref: 'v10.0.1'
-        commit: 'sha1-20cfd1bf945f4377ade1205e4dbc17946fc9a30d'
+    'astral-sh/setup-uv@v10.3.3':
+        ref: 'v10.3.3'
+        commit: 'sha1-68559e99cc807c1eb7e9238fd43a15bba460eec2'
         owner_id: 115962839
         repo_id: 846733598
     'pre-commit/action@v3.0.1':
