@@ -65,7 +65,8 @@
       "typed",
       "untyped",
       "field_added",
-      "field_removed"
+      "field_removed",
+      "status_changed"
     ],
     "label": [
       "created",
@@ -390,7 +391,7 @@
         "vars"
       ],
       "functions": [],
-      "path": "jobs.<job_id>.secrets.<secrets_id>"
+      "path": "jobs.<job_id>.secrets.<secret_id>"
     },
     {
       "contexts": [
@@ -621,7 +622,7 @@
         "vars"
       ],
       "functions": [],
-      "path": "jobs.<job_id>.with.<with_id>"
+      "path": "jobs.<job_id>.with.<input_id>"
     },
     {
       "contexts": [
@@ -9530,20 +9531,20 @@
   "root": 0,
   "sources": {
     "contexts": {
-      "sha256": "cdcfe7575683bd13e1942a085bc853e8907495386de5a2715be96b2270f35396",
-      "url": "https://raw.githubusercontent.com/github/docs/983a7880e09b9eb2f1cdb9693b95b8b024ab29bc/content/actions/reference/workflows-and-actions/contexts.md"
+      "sha256": "aa2ad5cbba4f0b0544d7973779501101777509369765c129279f41e9b7ff5099",
+      "url": "https://raw.githubusercontent.com/github/docs/d7487f5debb5a5a2a6e65e6f9fa539266f5f8db6/content/actions/reference/workflows-and-actions/contexts.md"
     },
     "events": {
-      "sha256": "69e251c1510f84d7b0a05ff8a4146456e657f175133081213805e02b0a655f50",
-      "url": "https://raw.githubusercontent.com/github/docs/983a7880e09b9eb2f1cdb9693b95b8b024ab29bc/content/actions/reference/workflows-and-actions/events-that-trigger-workflows.md"
+      "sha256": "2d5dfe059c61e563922fb4aac5d7f386bfc3ce22ef2e6d1c57031ed1f2400faa",
+      "url": "https://raw.githubusercontent.com/github/docs/d7487f5debb5a5a2a6e65e6f9fa539266f5f8db6/content/actions/reference/workflows-and-actions/events-that-trigger-workflows.md"
     },
     "openapi": {
-      "sha256": "2a93393cfccb292caeaa0ad9ab250900e361bda28f76743cc812dd0951cae8f0",
-      "url": "https://raw.githubusercontent.com/github/rest-api-description/5c36b6f685bae2acccf24a442f3240bf121cb488/descriptions/api.github.com/api.github.com.json"
+      "sha256": "6d9bbb20d8865b01464028937f2403954ad46598b4ebd3513dcb1a15b1a84aa7",
+      "url": "https://raw.githubusercontent.com/github/rest-api-description/c9c95fe34ced05fe076001f5c55704742bc8e7f8/descriptions/api.github.com/api.github.com.json"
     },
     "pull_request_activities": {
       "sha256": "9057b4fa15af5ff9b9a61689cb6cf8be3ab63aab7a1bfbcf4c59167b7130df37",
-      "url": "https://raw.githubusercontent.com/github/docs/983a7880e09b9eb2f1cdb9693b95b8b024ab29bc/data/reusables/actions/workflow-triggers-pull-request-activity-types.md"
+      "url": "https://raw.githubusercontent.com/github/docs/d7487f5debb5a5a2a6e65e6f9fa539266f5f8db6/data/reusables/actions/workflow-triggers-pull-request-activity-types.md"
     },
     "workflow": {
       "sha256": "ba07953f8becf1eae45c56efdbc2577b8121db9f57ed065a4c43edbfaf444c66",
